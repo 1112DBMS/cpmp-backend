@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+    <title>login</title>
+    <h1>User Identity</h1>
+    <img src="{{ Photo }}" width=200>
+    <h2> User name: {{ Name }} </h2>
+    <h2> Session: {{ Session }} </h2>
+    <h2> AccessToken: {{ AccessToken }} </h2>
+    <h2> RefreshToken: {{ RefreshToken }} </h2>
+    <button id="login_btn" class="float-left submit-button" >Login</button>
+    <button id="logout_btn" class="float-left submit-button" >Logout</button>
+<script type="text/javascript">
+    document.getElementById("login_btn").onclick = function () {
+        location.href = "{{ AUTH_URL }}?response_type=code&client_id={{ CLIENT_ID }}&scope=identify%20email&state={{ STATE }}&redirect_uri={{ OAUTH_URL }}&prompt=consent";
+    };
+    document.getElementById("logout_btn").onclick = function () {
+        location.href = "/api/logout";
+    };
+</script>
+</html>
