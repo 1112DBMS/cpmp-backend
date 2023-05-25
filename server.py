@@ -17,6 +17,8 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 
 app.wsgi_app = middleware(app.wsgi_app)
 
+#DB = sql.sql_client(user=SQL_USER, password=SQL_PASSWORD, host=SQL_HOST, port=SQL_PORT, database=SQL_DB)
+
 @app.route("/api/hello", methods=['GET'])
 def hello():
     data = {'session': flask.request.environ['session'], 'user': flask.request.environ['user']}
@@ -52,7 +54,6 @@ def login():
             #SITE=SITE
         )
 
-#   TODO: return with formated json.
 @app.route("/api/logout", methods=['GET'])
 def logout():
     session.unbind(flask.request.environ['session'])
@@ -65,7 +66,7 @@ def logout():
 @app.route("/api/oauth", methods=['GET'])
 def oauth():
     code = flask.request.args.get('code')
-    state = flask.request.args.get('state')
+    #state = flask.request.args.get('state')
     OAUTH_URL_=flask.request.headers.get('referer').split('?')[0]
     if OAUTH_URL_ == "https://discord.com/":
         OAUTH_URL_ = OAUTH_URL
@@ -83,29 +84,11 @@ def oauth():
     }
     
     r = requests.post(TOKEN_URL, data=data, headers=headers)
-    r.raise_for_status()
     
     if r.status_code == 200:
-        AccessToken = r.json()["access_token"]
-        RefreshToken = r.json()["refresh_token"]
-
-        res_data = user.fetch_user(AccessToken=AccessToken, RefreshToken=RefreshToken)
-
-        session.bind(flask.request.environ['session'], res_data["id"])
-        
-        if user.check_exist(res_data["id"]):
-            user.update_token(res_data["id"], AccessToken, RefreshToken)
-        else:
-            user.add_user(
-                    ID=res_data["id"],
-                    Name=res_data["username"],
-                    Email=res_data["email"],
-                    Photo="Default",
-                    AccessToken=AccessToken,
-                    RefreshToken=RefreshToken
-            )
-            user.update_photo(res_data["id"])
-
+        JSON = r.json()
+        UserID = user.create_user(JSON["access_token"], JSON["refresh_token"])
+        session.bind(flask.request.environ['session'], UserID)
         data = {
             "data": "Success",
             "error": False
@@ -123,6 +106,12 @@ def oauth():
             'error': True
         }
         return json.dumps(data, indent = 4)
+    else:
+        data = {
+            'data': f"Unknown error. http code = {r.status_code}",
+            'error': True
+        }
+        return json.dumps(data, indent = 4)
 
 @app.route("/api/profile", methods=['GET'])
 def profile():
@@ -130,13 +119,14 @@ def profile():
     data = None
     
     if user.check_exist(UserID):
+        user.update_info(UserID)
         User = user.get_user(UserID)
         data = {
             "data": {
                 "username": User["UserName"],
     	        "email": User["Email"],
     	        "avatar": User["Photo"],
-	        "userId": flask.request.environ['user']
+	        "userId": UserID
             },
             "error": False
         }
@@ -154,7 +144,7 @@ def search():
     if flask.request.is_json:
         data = flask.request.get_json()
         query_str = data.get('keyword', None)
-        offset = data.get('offset', 0)
+        offset = data.get('offset', 10)
         length = data.get('len', 10)
         print("offset:", offset)
         print("length:", length)
@@ -172,9 +162,46 @@ def search():
         }
     return json.dumps(res_data, indent = 4)
 
+@app.route("/api/download", methods=['POST'])
+def download():
+    res_data = {}
+    if flask.request.is_json:
+        data = flask.request.get_json()
+
+        SongID = data.get('id', None)
+
+        if SongID is not None:
+            if music.download(SongID) == True:
+                res_data = {
+                    "data": "Success",
+                    "error": False
+                }
+            else:
+                res_data = {
+                    "data": "Given song id is invalid.",
+                    "error": True
+                }
+        else:
+            res_data = {
+                "data": "No song id is given.",
+                "error": True
+            }
+    else:
+        res_data = {
+            'data': "Wrong usage.",
+            'error': True
+        }
+
+    return json.dumps(res_data, indent = 4)
+
+
 @app.route("/api/500", methods=['GET'])
 def resp500():
     return flask.make_response("As you wish.", 500)
+
+
+
+
 
 @app.route("/get_sound", methods=['GET'])
 def get_sound():

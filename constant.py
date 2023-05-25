@@ -19,4 +19,11 @@ CLIENT_SECRET = os.getenv('CLIENT_SECRET')
 SONG_FOLDER = os.getenv('SONG_FOLDER')
 PIC_FOLDER = os.getenv('PIC_FOLDER')
 
+
+SQL_HOST = os.getenv('SQL_HOST')
+SQL_PORT = os.getenv('SQL_PORT')
+SQL_USER = os.getenv('SQL_USER')
+SQL_PASSWORD = os.getenv('SQL_PASSWORD')
+SQL_DB = os.getenv('SQL_DB')
+
 WORKERS = 100

@@ -1,22 +1,29 @@
 import sql
+from sql import sql_client
 import picture
-from uuid import uuid3, NAMESPACE_URL
+import re
+import json
+from bs4 import BeautifulSoup
 from pytube.contrib.channel import Channel
+
+from uuid import uuid3, NAMESPACE_URL
 
 def uuid(url):
     return str(uuid3(NAMESPACE_URL, url))
 
 def get_uploader(ID):
-    if check_exist(ID):
-        uploader = sql.get_uploader_by_ID(ID)
-        return uploader[0]
-    else:
-        return None
+    client = sql_client()
+    result = client.get_uploader_by_ID(ID)
+    client.close()
+    return result
 
 def check_exist(ID):
-    return sql.uploader_exist(ID)
+    client = sql_client()
+    result = client.uploader_exist(ID)
+    client.close()
+    return result
 
-def save_uploader(url, platform):
+def add_uploader(url, platform):
     if platform == "youtube":
         chan = Channel(url)
         UUID = uuid(url)
@@ -25,11 +32,33 @@ def save_uploader(url, platform):
         Name = chan.channel_name
         Platform = platform
         
-        Photo = "Lorem ipsum"   #TODO CRITICAL
 
         Description = chan.about_html
 
-        sql.add_new_uploader(UUID, URL, OrigID, Name, Platform, Photo, Description)
+        soup = BeautifulSoup(Description, 'html.parser')
+
+        scripts = soup.find_all('script')
+
+        urls = []
+
+        for script in scripts:
+            # find all avatar patterns in the script
+            matches = re.findall(r'"avatar":{"thumbnails":(.*?)]}', str(script.string))
+    
+            for match in matches:
+                # load the string as JSON
+                thumbnails = json.loads(match + ']')
+        
+                # get the last url
+                url = thumbnails[-1]['url']
+                urls.append(url)
+        
+        PhotoID = picture.fetch_picture(urls[-1])["PicID"]
+
+        client = sql_client()
+        client.add_new_uploader(UUID, URL, OrigID, Name, Platform, PhotoID, Description)
+        client.close()
+
     elif platform == "spotify":
         pass #TODO
     else:
@@ -41,8 +70,11 @@ def fetch_uploader(url = None, UUID = None, platform = "default"):
         pass
     elif url is not None:
         UUID = uuid(url)
-    uploader = get_uploader(UUID)
-    if uploader is None:
-        save_uploader(url=url, platform=platform)
-        uploader = get_uploader(UUID)
-    return uploader
+    
+    if not check_exist(UUID):
+        add_uploader(url=url, platform=platform)
+        print("Add new uploader:", UUID)
+    else:
+        print("Uploader exists.")
+
+    return get_uploader(UUID)
