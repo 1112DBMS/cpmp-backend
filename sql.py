@@ -152,6 +152,22 @@ class sql_client:
         else:
             return False
         
+    def picture_user_using(self, PicID):
+        try:
+            self._cursor.execute(
+                'SELECT EXISTS (SELECT * FROM User WHERE Photo = %s) AS is_exists',
+                (PicID,)
+            )
+            result = self._cursor.fetchall()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+
+        if result[0][0] == 1:
+            return True
+        else:
+            return False
+        
     def get_user_by_ID(self, UserID):
         try:
             self._cursor.execute(
@@ -273,6 +289,48 @@ class sql_client:
             self._cursor.execute(
                 'UPDATE Song SET Download = %s WHERE SongID = %s',
                 (download, SongID)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def update_user_photo(self, UserID, PicID):
+        try:
+            self._cursor.execute(
+                'UPDATE User SET Photo = %s WHERE UserID = %s',
+                (PicID, UserID)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def update_user_email(self, UserID, email):
+        try:
+            self._cursor.execute(
+                'UPDATE User SET Email = %s WHERE UserID = %s',
+                (email, UserID)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def delete_picture(self, PicID):
+        try:
+            self._cursor.execute(
+                'DELETE FROM Picture WHERE PicID = %s',
+                (PicID,)
             )
             self._conn.commit()
         except Exception as e:

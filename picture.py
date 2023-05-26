@@ -1,5 +1,7 @@
 from PIL import Image
 import requests
+import os
+
 from uuid import uuid3, NAMESPACE_URL
 from sql import sql_client
 from datetime import datetime
@@ -17,6 +19,12 @@ def check_exist(ID):
 def get_picture(ID):
     client = sql_client()
     result = client.get_picture_by_ID(ID)
+    client.close()
+    return result
+
+def picture_user_using(ID):
+    client = sql_client()
+    result = client.picture_user_using(ID)
     client.close()
     return result
 
@@ -46,6 +54,22 @@ def fetch_picture(url):
         add_picture(url)
 
     return get_picture(UUID)
+
+def delete_picture(UUID):
+    if not check_exist(UUID):
+        return
+
+    client = sql_client()
+    client.delete_picture(UUID)
+    client.close()
+
+    Filepath = f'{PIC_FOLDER}/{UUID}'
+    if os.path.isfile(Filepath):
+        os.remove(Filepath)
+
+    print("PIC deleted:", UUID)
+
+    return
 
 if __name__ == '__main__':
     url = input("New pic URL:")

@@ -4,29 +4,6 @@ import uuid
 import picture
 from constant import CLIENT_ID, CLIENT_SECRET, TOKEN_URL
 
-def create_user(AccessToken, RefreshToken):
-        
-    res_data = fetch_user(AccessToken=AccessToken, RefreshToken=RefreshToken)
-    
-    UserID = res_data["id"]
-    UserName = res_data["username"]
-    email = res_data["email"]
-    ava_hash = res_data["avatar"]
-    discriminator = res_data["discriminator"]
-
-    PicID = download_photo(UserID, ava_hash, discriminator)
-
-    if check_exist(UserID):
-        print("User exists.")
-        pass
-    else:
-        print("Creating user:", UserID, UserName)
-        client = sql_client()
-        client.add_new_user(UserID, UserName, email, PicID, AccessToken, RefreshToken)
-        client.close()
-
-    return UserID
-
 def check_exist(ID):
     client = sql_client()
     result = client.user_exist(ID)
@@ -39,7 +16,19 @@ def get_user(ID):
     client.close()
     return result
 
-def fetch_user(AccessToken = None, RefreshToken = None, UserID = None):
+def update_photo(UserID, Photo):
+    client = sql_client()
+    client.update_user_photo(UserID = UserID, PicID = Photo)
+    client.close()
+    return
+
+def update_email(UserID, email):
+    client = sql_client()
+    client.update_user_email(UserID = UserID, email = email)
+    client.close()
+    return
+
+def fetch_dc_info(AccessToken = None, RefreshToken = None, UserID = None):
     if UserID is not None:
         user = get_user(UserID)
         AccessToken = user["AccessToken"]
@@ -60,6 +49,40 @@ def fetch_user(AccessToken = None, RefreshToken = None, UserID = None):
         r.raise_for_status()
     return
 
+def add_user(res_data, AccessToken, RefreshToken):
+    
+    UserID = res_data["id"]
+    UserName = res_data["username"]
+    email = res_data["email"]
+    ava_hash = res_data["avatar"]
+    discriminator = res_data["discriminator"]
+
+    PicID = download_photo(UserID, ava_hash, discriminator)
+
+    print("Creating user:", UserID, UserName)
+    client = sql_client()
+    client.add_new_user(UserID, UserName, email, PicID, AccessToken, RefreshToken)
+    client.close()
+
+    return
+
+def fetch_user(AccessToken = None, RefreshToken = None, ID = None):
+    
+    res_data = {}
+
+    if ID is not None:
+        res_data = fetch_dc_info(UserID=ID)
+    else:
+        res_data = fetch_dc_info(AccessToken=AccessToken, RefreshToken=RefreshToken)
+        ID = res_data["id"]
+
+    if not check_exist(ID):
+        add_user(res_data, AccessToken, RefreshToken)
+    else:
+        update_info(ID, res_data)
+    
+    return get_user(ID)
+
 def download_photo(UserID, ava_hash, discriminator):
     Photo_url = ""
     if ava_hash is None:
@@ -76,13 +99,30 @@ def download_photo(UserID, ava_hash, discriminator):
         print("Picture exists.")
     return PicID
 
-def update_info(ID):
+def update_info(ID, res_data = None):
+    
+    if res_data is None:
+        res_data = fetch_dc_info(UserID=ID)
+
+    email = res_data["email"]
+    ava_hash = res_data["avatar"]
+    discriminator = res_data["discriminator"]
+
+    PicID = download_photo(ID, ava_hash, discriminator)
+
+    user = get_user(ID)
+
+    if user["Photo"] != PicID:
+        update_photo(ID, PicID)
+        if picture.picture_user_using(user["Photo"]) == False:
+            picture.delete_picture(user["Photo"])
+        else:
+            print("Others using, skip deleting...")
+
+    if user["Email"] != email:
+        update_email(ID, email)
+
     return
-    user.update_token(UserID, AccessToken, RefreshToken)
-    UserData = fetch_user(UserID=ID)
-    user.update_photo(UserID)
-    # TODO: update on GET /api/profile.
-    #   Update Tokens, avatar and email.
 
 '''
 def update_token(ID, AccessToken = None, RefreshToken = None):
@@ -110,9 +150,5 @@ def update_token(ID, AccessToken = None, RefreshToken = None):
         AccessToken=AccessToken,
         RefreshToken=RefreshToken
     )
-    return
-
-def update_photo(UserID, Photo):
-    sql.update_user_photo(UserID = UserID, PicID = Photo)
     return
 '''

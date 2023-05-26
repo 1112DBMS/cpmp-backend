@@ -51,6 +51,7 @@ def gen_track(url = None, ID = None, UUID = None, UserID = None):
         "uploader": Uploader["Name"],
         "uploaderId": Uploader["UploaderID"],
         "id": Song["SongID"],
+        "download": True if Song["Download"] == 2 else False,
         "like": None
     }
     if UserID is not None:
@@ -127,8 +128,11 @@ def download(UUID):
     if Song["Platform"] == "youtube":
         if Song["Download"] == 0:
             set_download(UUID, 1)
-            YT.download_song(Song["OrigURL"])
-            set_download(UUID, 2)
+            try:
+                YT.download_song(Song["OrigURL"])
+                set_download(UUID, 2)
+            except:
+                set_download(UUID, 0)
         elif Song["Download"] == 1:
             while Song["Download"] == 1:
                 sleep(1)

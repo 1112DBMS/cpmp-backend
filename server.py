@@ -87,7 +87,7 @@ def oauth():
     
     if r.status_code == 200:
         JSON = r.json()
-        UserID = user.create_user(JSON["access_token"], JSON["refresh_token"])
+        UserID = user.fetch_user(JSON["access_token"], JSON["refresh_token"])["UserID"]
         session.bind(flask.request.environ['session'], UserID)
         data = {
             "data": "Success",
@@ -144,7 +144,7 @@ def search():
     if flask.request.is_json:
         data = flask.request.get_json()
         query_str = data.get('keyword', None)
-        offset = data.get('offset', 10)
+        offset = data.get('offset', 0)
         length = data.get('len', 10)
         print("offset:", offset)
         print("length:", length)
