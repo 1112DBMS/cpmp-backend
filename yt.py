@@ -82,18 +82,9 @@ def parse_link(link):
 #####################################
 '''
 
-def uuid(url = None, ID = None):
-    ytObj = None
-    
-    if url is not None:
-        ytObj = YT(url=url)
-    elif ID is not None:
-        ytObj = YT.from_id(ID)
-
-    if ytObj is not None:
-        return str(uuid3(NAMESPACE_URL, ytObj.watch_url))
-    else:
-        raise SyntaxError("No YT url nor ID is given to generate UUID!")
+def uuid(url):
+    ytObj = YT(url=url)
+    return str(uuid3(NAMESPACE_URL, ytObj.watch_url))
 
 def download_song(url):
     ytObj = YT(url, use_oauth=True, allow_oauth_cache=True)
@@ -131,37 +122,27 @@ def search(query, max_idx):
             return search.results[:max_idx]
     return search.results[:max_idx]
 
-def add_song(url = None, ID = None, download = False):
-    ytObj = None
-    
-    if url is not None:
-        ytObj = YT(url=url)
-    elif ID is not None:
-        ytObj = YT.from_id(ID)
+def add_song(url = None, download = False):
+    ytObj = YT(url=url, use_oauth=True, allow_oauth_cache=True)
 
-    if ytObj is not None:
-        ytObj.use_oauth=True
-        ytObj.allow_oauth_cache=True
+    UUID = uuid(url=ytObj.watch_url)
+    url = ytObj.watch_url
+    Platform = "youtube"
+    Title = ytObj.title
+    Length = ytObj.length
 
-        UUID = uuid(url=url, ID=ID)
-        url = ytObj.watch_url
-        Platform = "youtube"
-        Title = ytObj.title
-        Length = ytObj.length
+    UploaderID = uploader.fetch_uploader(url=ytObj.channel_url, platform="youtube")["UploaderID"]
 
-        UploaderID = uploader.fetch_uploader(url=ytObj.channel_url, platform="youtube")["UploaderID"]
+    thumbnailID = picture.fetch_picture(url=ytObj.thumbnail_url)["PicID"]
 
-        thumbnailID = picture.fetch_picture(url=ytObj.thumbnail_url)["PicID"]
+    likecount = 0
 
-        likecount = 0
+    Download = 0
+    if download:
+        download_song(url)
+        Download = 2
 
-        Download = 0
-        if download:
-            download_song(url)
-            Download = 2
-
-        client = sql_client()
-        client.add_new_song(UUID, url, Platform, Title, UploaderID, thumbnailID, likecount, Length, Download)
-        client.close()
-    else:
-        raise SyntaxError("No YT url nor ID is given to add song!")
+    client = sql_client()
+    client.add_new_song(UUID, url, Platform, Title, UploaderID, thumbnailID, likecount, Length, Download)
+    client.close()
+    return

@@ -8,9 +8,6 @@ import sql
 from sql import sql_client
 from constant import WORKERS
 
-def uuid(url):
-    return str(uuid3(NAMESPACE_URL, url))
-
 class track:
 
     def __init__(self, SongID = None, UserID = None, Song = None):
@@ -68,29 +65,32 @@ def set_download(ID, state):
     client.close()
     return 
 
-def fetch_song(url = None, ID = None, UUID = None):
+def fetch_song(url = None, UUID = None):
     if UUID is not None:
         pass
     else:
-        UUID = YT.uuid(url=url, ID=ID)
+        UUID = YT.uuid(url=url)
 
     if not check_exist(UUID):
-        YT.add_song(url=url, ID=ID, download=False)
-        print("Add new song:", UUID)
+        if url is not None:
+            YT.add_song(url=url, download=False)
+            print("Add new song:", UUID)
+        else:
+            raise ValueError("No url is given to generate song.")
     else:
         print("Song exists.")
 
     return get_song(UUID)
 
-def gen_track(url = None, ID = None, UUID = None, UserID = None):
-    Song = fetch_song(url=url, ID=ID, UUID=UUID)
+def gen_track(url = None, UUID = None, UserID = None):
+    Song = fetch_song(url=url, UUID=UUID)
     Track = track(Song["SongID"], Song=Song)
     return Track.to_dict()
 
-def gen_track_list(urls = None, IDs = None, UUIDs = None, UserID = None):
+def gen_track_list(urls = None, UUIDs = None, UserID = None):
 
-    def worker(return_lst, idx, url = None, ID = None, UUID = None, UserID = None):
-        return_lst[idx] = gen_track(url=url, ID=ID, UUID=UUID, UserID=UserID)
+    def worker(return_lst, idx, url = None, UUID = None, UserID = None):
+        return_lst[idx] = gen_track(url=url, UUID=UUID, UserID=UserID)
         return
 
     manager = Manager()
@@ -98,8 +98,6 @@ def gen_track_list(urls = None, IDs = None, UUIDs = None, UserID = None):
     
     if urls is not None:
         arr_len = len(urls)
-    elif IDs is not None:
-        arr_len = len(IDs)
     elif UUIDs is not None:
         arr_len = len(UUIDs)
     
@@ -108,8 +106,6 @@ def gen_track_list(urls = None, IDs = None, UUIDs = None, UserID = None):
 
     if urls is None:
         urls = [None]*arr_len
-    if IDs is None:
-        IDs = [None]*arr_len
     if UUIDs is None:
         UUIDs = [None]*arr_len
 
@@ -122,7 +118,7 @@ def gen_track_list(urls = None, IDs = None, UUIDs = None, UserID = None):
             idx = i*WORKERS+j
             if idx >= arr_len:
                 break
-            p[idx] = (Process(target=worker, args=(Tracklst, idx, urls[idx], IDs[idx], UUIDs[idx], UserID)))
+            p[idx] = (Process(target=worker, args=(Tracklst, idx, urls[idx], UUIDs[idx], UserID)))
             p[idx].start()
             idx_list.append(idx)
 

@@ -177,6 +177,29 @@ def download():
 
     return res.json()
 
+@app.route("/api/track", methods=['POST'])
+def get_track():
+    res = None
+
+    if flask.request.is_json:
+        data = flask.request.get_json()
+
+        SongID = data.get('id', None)
+        URL = data.get('url', None)
+
+        if SongID is not None or URL is not None:
+            try:
+                res = MyResponse(music.gen_track(url = URL, UUID = SongID, UserID = None))
+            except Exception as e:
+                res = MyResponse("Invalid UUID or url is given.", error=True)
+                print(e)
+        else:
+            res = MyResponse("No id or url is given.", error=True)
+
+    else:
+        res = MyResponse("Wrong usage.", error=True)
+
+    return res.json()
 
 @app.route("/api/500", methods=['GET'])
 def resp500():
