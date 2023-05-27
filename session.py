@@ -9,6 +9,12 @@ def CreateSession():
     client.close()
     return session
 
+def check_exist(session):
+    client = sql_client()
+    result = client.session_exist(session)
+    client.close()
+    return result
+
 def Session2User(session):
     client = sql_client()
     result = client.get_user_by_session(session)

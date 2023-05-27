@@ -8,6 +8,48 @@ import sql
 from sql import sql_client
 from constant import WORKERS
 
+def uuid(url):
+    return str(uuid3(NAMESPACE_URL, url))
+
+class track:
+
+    def __init__(self, SongID = None, UserID = None, Song = None):
+        if Song is None:
+            Song = get_song(SongID)
+
+        Uploader = uploader.get_uploader(Song["Uploader"])
+
+        self.Title = Song["Title"]
+        self.URL = Song["OrigURL"]
+        self.Platform = Song["Platform"]
+        self.Thumbnail = Song["Thumbnail"]
+        self.Uploader = Uploader["Name"]
+        self.UploaderID = Uploader["UploaderID"]
+        self.SongID = Song["SongID"]
+        self.Download = True if Song["Download"] == 2 else False
+        self.Like = None
+        self.UserID = UserID
+        
+        if UserID is not None:
+            client = sql_client()
+            self.like = client.user_song_like(UserID, SongID)
+            client.close()
+        return
+    
+    def to_dict(self):
+        data = {
+            "title": self.Title,
+            "url": self.URL,
+            "platform": self.Platform,
+            "thumbnail": self.Thumbnail,
+            "uploader": self.Uploader,
+            "uploaderId": self.UploaderID,
+            "id": self.SongID,
+            "download": self.Download,
+            "like": self.Like
+        }
+        return data
+
 def check_exist(ID):
     client = sql_client()
     result = client.song_exist(ID)
@@ -42,21 +84,8 @@ def fetch_song(url = None, ID = None, UUID = None):
 
 def gen_track(url = None, ID = None, UUID = None, UserID = None):
     Song = fetch_song(url=url, ID=ID, UUID=UUID)
-    Uploader = uploader.get_uploader(Song["Uploader"])
-    Track = {
-        "title": Song["Title"],
-        "url": Song["OrigURL"],
-        "platform": Song["Platform"],
-        "thumbnail": Song["Thumbnail"],
-        "uploader": Uploader["Name"],
-        "uploaderId": Uploader["UploaderID"],
-        "id": Song["SongID"],
-        "download": True if Song["Download"] == 2 else False,
-        "like": None
-    }
-    if UserID is not None:
-        Track["like"] = sql.user_like_song_query(UserID, UUID)
-    return Track
+    Track = track(Song["SongID"], Song=Song)
+    return Track.to_dict()
 
 def gen_track_list(urls = None, IDs = None, UUIDs = None, UserID = None):
 
@@ -102,24 +131,20 @@ def gen_track_list(urls = None, IDs = None, UUIDs = None, UserID = None):
     return list(Tracklst)
 
 def search(query, offset, size):
-    d = {}
+    d = None
+    error = False
     result = YT.search(query, offset+size)
     if len(result) > offset:
         urls = [yt.watch_url for yt in result[offset:]]
         tracks = gen_track_list(urls = urls)
         d = {
-            "data": {
-                "list": tracks,
-                "total": len(tracks)
-            },
-            "error": False
+            "list": tracks,
+            "total": len(tracks)
         }
     else:
-        d = {
-            "data": "Not enough search results.",
-            "error": True
-        }
-    return d
+        d = "Not enough search results."
+        error = True
+    return (d, error)
 
 def download(UUID):
     if not check_exist(UUID):

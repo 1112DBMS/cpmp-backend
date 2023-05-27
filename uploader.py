@@ -33,14 +33,12 @@ def add_uploader(url, platform):
         Platform = platform
         
 
-        Description = chan.about_html
+        About_html = chan.about_html
 
-        soup = BeautifulSoup(Description, 'html.parser')
+        soup = BeautifulSoup(About_html, 'html.parser')
 
         scripts = soup.find_all('script')
-
         urls = []
-
         for script in scripts:
             # find all avatar patterns in the script
             matches = re.findall(r'"avatar":{"thumbnails":(.*?)]}', str(script.string))
@@ -54,6 +52,9 @@ def add_uploader(url, platform):
                 urls.append(url)
         
         PhotoID = picture.fetch_picture(urls[-1])["PicID"]
+
+        meta_tag = soup.find('meta', {'itemprop': 'description'})
+        Description = meta_tag['content'] if meta_tag else None
 
         client = sql_client()
         client.add_new_uploader(UUID, URL, OrigID, Name, Platform, PhotoID, Description)

@@ -85,6 +85,7 @@ class sql_client:
         except Exception as e:
             # Roll back the transaction if any operation failed
             self._conn.rollback()
+            print(e)
 
         return
 
@@ -93,6 +94,22 @@ class sql_client:
             self._cursor.execute(
                 'SELECT EXISTS (SELECT * FROM User WHERE UserID = %s) AS is_exists',
                 (UserID,)
+            )
+            result = self._cursor.fetchall()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+        
+        if result[0][0] == 1:
+            return True
+        else:
+            return False
+
+    def session_exist(self, SessionID):
+        try:
+            self._cursor.execute(
+                'SELECT EXISTS (SELECT * FROM Session WHERE SessionID = %s) AS is_exists',
+                (SessionID,)
             )
             result = self._cursor.fetchall()
         except Exception as e:
@@ -157,6 +174,22 @@ class sql_client:
             self._cursor.execute(
                 'SELECT EXISTS (SELECT * FROM User WHERE Photo = %s) AS is_exists',
                 (PicID,)
+            )
+            result = self._cursor.fetchall()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+
+        if result[0][0] == 1:
+            return True
+        else:
+            return False
+        
+    def user_song_like(self, UserID, SongID):
+        try:
+            self._cursor.execute(
+                'SELECT EXISTS (SELECT * FROM Like WHERE LUser = %s AND LSong = %s) AS is_exists',
+                (UserID, SongID)
             )
             result = self._cursor.fetchall()
         except Exception as e:
@@ -251,6 +284,31 @@ class sql_client:
         }
         return data
 
+    def get_all_uploader(self):
+        try:
+            self._cursor.execute(
+                'SELECT * FROM Uploader'
+            )
+            results = self._cursor.fetchall()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return_data = []
+        for result in results:
+            data = {
+                "UploaderID": result[0],
+                "URL": result[1],
+                "OrigID": result[2],
+                "Name": result[3],
+                "Platform": result[4],
+                "Description": result[5],
+                "Photo": result[5]
+            }
+            return_data.append(data)
+        return return_data
+
     def get_picture_by_ID(self, PicID):
         try:
             self._cursor.execute(
@@ -326,6 +384,20 @@ class sql_client:
 
         return
 
+    def update_uploader_description(self, UploaderID, Description):
+        try:
+            self._cursor.execute(
+                'UPDATE Uploader SET Description = %s WHERE UploaderID = %s',
+                (Description, UploaderID)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
     def delete_picture(self, PicID):
         try:
             self._cursor.execute(
@@ -343,10 +415,6 @@ class sql_client:
 def update_user_access_token(ID, AccessToken, RefreshToken):
     user_sql[ID]["AccessToken"] = AccessToken
     user_sql[ID]["RefreshToken"] = RefreshToken
-    return
-
-def update_user_photo(UserID, PicID):
-    user_sql[UserID]["Photo"] = PicID
     return
 
 def user_like_song_query(UserID, UUID):
