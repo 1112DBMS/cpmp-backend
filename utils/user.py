@@ -1,8 +1,10 @@
-from sql import sql_client
 import requests
 import uuid
-import picture
-from constant import CLIENT_ID, CLIENT_SECRET, TOKEN_URL
+
+import utils.picture as picture
+import utils.musicqueue as musicqueue
+from utils.constant import CLIENT_ID, CLIENT_SECRET, TOKEN_URL
+from utils.sql import sql_client
 
 def check_exist(ID):
     client = sql_client()
@@ -28,6 +30,13 @@ def update_email(UserID, email):
     client.close()
     return
 
+def update_tokens(UserID, AccessToken, RefreshToken):
+    client = sql_client()
+    client.update_user_tokens(UserID, AccessToken, RefreshToken)
+    client.close()
+    return
+
+
 def fetch_dc_info(AccessToken = None, RefreshToken = None, UserID = None):
     if UserID is not None:
         user = get_user(UserID)
@@ -35,7 +44,7 @@ def fetch_dc_info(AccessToken = None, RefreshToken = None, UserID = None):
         RefreshToken = user["RefreshToken"]
 
     headers = {
-        'Authorization': 'Bearer %s' % (AccessToken)
+        'Authorization': f'Bearer {AccessToken}'
     }
     r = requests.get("https://discordapp.com/api/users/@me", headers=headers)
     
@@ -43,8 +52,12 @@ def fetch_dc_info(AccessToken = None, RefreshToken = None, UserID = None):
     
         data = r.json()
         return data
-    elif r.status_code//100 == 4:
-        r.raise_for_status()
+    elif r.status_code == 401 and UserID is not None:
+        try:
+            fetch_new_token(UserID = UserID, RefreshToken = RefreshToken)
+            return fetch_dc_info(UserID=UserID)
+        except Exception as e:
+            raise e
     else:
         r.raise_for_status()
     return
@@ -79,6 +92,9 @@ def fetch_user(AccessToken = None, RefreshToken = None, ID = None):
     if not check_exist(ID):
         add_user(res_data, AccessToken, RefreshToken)
     else:
+        if AccessToken is not None and RefreshToken is not None:
+            update_tokens(ID, AccessToken, RefreshToken)
+
         update_info(ID, res_data)
     
     return get_user(ID)
@@ -124,31 +140,27 @@ def update_info(ID, res_data = None):
 
     return
 
-'''
-def update_token(ID, AccessToken = None, RefreshToken = None):
-    if AccessToken is not None and RefreshToken is not None:
+def fetch_new_token(UserID, RefreshToken = None):
+    if RefreshToken is not None:
         pass
     else:
-        RefreshToken = sql.get_user_by_ID(ID)["RefreshToken"]
-        data = {
-            'client_id': CLIENT_ID,
-            'client_secret': CLIENT_SECRET,
-            'grant_type': 'refresh_token',
-            'refresh_token': refresh_token
-        }
-        headers = {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-        r = requests.post(TOKEN_URL, data=data, headers=headers)
-        r.raise_for_status()
-        data = r.json()
-        AccessToken = data["access_token"]
-        RefreshToken = data["refresh_token"]
+        RefreshToken = get_user(UserID)["RefreshToken"]
 
-    sql.update_user_access_token(
-        ID=ID,
-        AccessToken=AccessToken,
-        RefreshToken=RefreshToken
-    )
+    data = {
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET,
+        'grant_type': 'refresh_token',
+        'refresh_token': RefreshToken
+    }
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+    r = requests.post(TOKEN_URL, data=data, headers=headers)
+    r.raise_for_status()
+    data = r.json()
+    AccessToken = data["access_token"]
+    RefreshToken = data["refresh_token"]
+
+    update_tokens(UserID, AccessToken, RefreshToken)
+
     return
-'''

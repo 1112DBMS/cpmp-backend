@@ -1,11 +1,11 @@
-from PIL import Image
-import requests
 import os
-
+import requests
+from PIL import Image
 from uuid import uuid3, NAMESPACE_URL
-from sql import sql_client
 from datetime import datetime
-from constant import PIC_FOLDER
+
+from utils.sql import sql_client
+from utils.constant import PIC_FOLDER
 
 def uuid(url):
     return str(uuid3(NAMESPACE_URL, url))

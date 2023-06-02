@@ -2,11 +2,10 @@ from multiprocessing import Process, Manager
 import math
 from time import sleep
 
-import yt as YT
-import uploader
-import sql
-from sql import sql_client
-from constant import WORKERS
+import utils.yt as YT
+import utils.uploader as uploader
+from utils.sql import sql_client
+from utils.constant import WORKERS, DOWNLOAD_LENGTH_LIMIT
 
 class track:
 
@@ -73,7 +72,18 @@ def fetch_song(url = None, UUID = None):
 
     if not check_exist(UUID):
         if url is not None:
-            YT.add_song(url=url, download=False)
+            Tries = 3
+            while Tries > 0:
+                try:
+                    YT.add_song(url=url, download=False)
+                    break
+                except ConnectionResetError:
+                    sleep(0.1)
+                    print(f"Retry pulling {url}")
+                    Tries -= 1
+            if Tries == 0:
+                raise ConnectionResetError(f"Out of tries when fetching {url}")
+                
             print("Add new song:", UUID)
         else:
             raise ValueError("No url is given to generate song.")
@@ -100,10 +110,10 @@ def gen_track_list(urls = None, UUIDs = None, UserID = None):
         arr_len = len(urls)
     elif UUIDs is not None:
         arr_len = len(UUIDs)
-    
+    '''
     if arr_len == 0:
         raise ValueError("Length of requested track list cannot be 0.")
-
+    '''
     if urls is None:
         urls = [None]*arr_len
     if UUIDs is None:
@@ -146,6 +156,10 @@ def download(UUID):
     if not check_exist(UUID):
         return False
     Song = get_song(UUID)
+    
+    if Song["Length"] >= DOWNLOAD_LENGTH_LIMIT:
+        return False
+
     if Song["Platform"] == "youtube":
         if Song["Download"] == 0:
             set_download(UUID, 1)

@@ -1,12 +1,11 @@
-import sql
-from sql import sql_client
-import picture
 import re
 import json
 from bs4 import BeautifulSoup
 from pytube.contrib.channel import Channel
-
 from uuid import uuid3, NAMESPACE_URL
+
+from utils.sql import sql_client
+import utils.picture as picture
 
 def uuid(url):
     return str(uuid3(NAMESPACE_URL, url))

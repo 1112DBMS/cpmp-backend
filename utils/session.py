@@ -1,6 +1,6 @@
 from uuid import uuid4
-import sql
-from sql import sql_client
+
+from utils.sql import sql_client
 
 def CreateSession():
     session = str(uuid4())
@@ -20,7 +20,6 @@ def Session2User(session):
     result = client.get_user_by_session(session)
     client.close()
     return result["UserID"]
-    #return sql.session_to_user(session)
 
 def bind(session, user):
     client = sql_client()

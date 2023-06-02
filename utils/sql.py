@@ -1,10 +1,6 @@
 import mysql.connector
-from constant import SQL_USER, SQL_PASSWORD, SQL_HOST, SQL_PORT, SQL_DB
 
-session_sql = {}
-user_sql = {}
-uploader_sql = {}
-song_sql = {}
+from utils.constant import SQL_USER, SQL_PASSWORD, SQL_HOST, SQL_PORT, SQL_DB
 
 class sql_client:
 
@@ -80,6 +76,48 @@ class sql_client:
             self._cursor.execute(
                 'INSERT INTO Uploader (UploaderID, URL, OrigID, Name, UPlatform, Description, UPhoto) VALUES (%s,%s,%s,%s,%s,%s,%s)',
                 (ID, URL, OrigID, Name, Platform, Description, Photo)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def add_new_queue(self, QID, Name, Loop, Lock):
+        try:
+            self._cursor.execute(
+                'INSERT INTO Queue (QueueID, Name, LoopStat, Locked) VALUES (%s,%s,%s,%s)',
+                (QID, Name, Loop, Lock)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def add_song_to_queue(self, QID, idx, SID, Time):
+        try:
+            self._cursor.execute(
+                'INSERT INTO QIndex (`QID`, `Index`, `QSongID`, `Time`) VALUES (%s,%s,%s,%s)',
+                (QID, idx, SID, Time)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def add_user_role_in_queue(self, QID, UID, Role):
+        try:
+            self._cursor.execute(
+                'INSERT INTO Role (QID, UID, Role) VALUES (%s,%s,%s)',
+                (QID, UID, Role)
             )
             self._conn.commit()
         except Exception as e:
@@ -169,6 +207,22 @@ class sql_client:
         else:
             return False
         
+    def queue_exist(self, QID):
+        try:
+            self._cursor.execute(
+                'SELECT EXISTS (SELECT * FROM Queue WHERE QueueID = %s) AS is_exists',
+                (QID,)
+            )
+            result = self._cursor.fetchall()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+
+        if result[0][0] == 1:
+            return True
+        else:
+            return False
+
     def picture_user_using(self, PicID):
         try:
             self._cursor.execute(
@@ -324,9 +378,79 @@ class sql_client:
             "PicID": result[0][0],
             "Time": result[0][1],
             "SizeX": result[0][2],
-            "SizeY": result[0][3],
+            "SizeY": result[0][3]
         }
         return data
+
+    def get_qid_by_uid(self, ID):
+        try:
+            self._cursor.execute(
+                'SELECT QID FROM User WHERE UserID = %s',
+                (ID,)
+            )
+            result = self._cursor.fetchall()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+        
+        if len(result) == 0:
+            return None
+        else:
+            return result[0][0]
+    '''
+        data = {
+            "QueueID": result[0][0],
+            "Name": result[0][1],
+            "QUser": result[0][2],
+            "QGuild": result[0][3],
+            "Loop": result[0][4],
+            "Locked": result[0][5]
+        }
+        return data
+    '''
+
+    def get_queue_rows(self, QID):
+        try:
+            self._cursor.execute(
+                'SELECT * FROM QIndex WHERE QID = %s order by `Index`',
+                (QID,)
+            )
+            results = self._cursor.fetchall()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+        
+        return ([result[2] for result in results], [result[3] for result in results])
+
+    def get_queue_len(self, QID):
+        try:
+            self._cursor.execute(
+                'SELECT COUNT(*) FROM QIndex WHERE QID = %s',
+                (QID,)
+            )
+            results = self._cursor.fetchall()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+        
+        return results[0][0]
+
+    def get_user_role_in_queue(self, QID, UID):
+        try:
+            self._cursor.execute(
+                'SELECT Role FROM Role WHERE QID = %s AND UID = %s',
+                (QID, UID)
+            )
+            result = self._cursor.fetchall()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+        
+        if len(result) == 0:
+            return None
+
+        return result[0][0]
 
     def update_session_user(self, session, user):
         try:
@@ -398,6 +522,98 @@ class sql_client:
 
         return
 
+    def update_user_tokens(self, UserID, AccTok, RefTok):
+        try:
+            self._cursor.execute(
+                'UPDATE User SET AccessToken = %s, RefreshToken = %s WHERE UserID = %s',
+                (AccTok, RefTok, UserID)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def update_queue_song_index_down(self, QID, start, end):
+        try:
+            self._cursor.execute(
+                'UPDATE QIndex SET `Index` = `Index` - POW(2, 31) WHERE QID = %s AND `Index` >= %s AND `Index` < %s',
+                (QID, start, end)
+            )
+            self._cursor.execute(
+                'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) + 1 WHERE QID = %s AND `Index` < 0',
+                (QID,)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def update_queue_song_index_up(self, QID, start, end):
+        try:
+            self._cursor.execute(
+                'UPDATE QIndex SET `Index` = `Index` - POW(2, 31) WHERE QID = %s AND `Index` >= %s AND `Index` < %s',
+                (QID, start, end)
+            )
+            self._cursor.execute(
+                'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) - 1 WHERE QID = %s AND `Index` < 0',
+                (QID,)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def update_queue_owner(self, QID, UID):
+        try:
+            self._cursor.execute(
+                'UPDATE User SET QID = %s WHERE UserID = %s',
+                (QID, UID)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def update_queue_guild(self, QID, GID):
+        try:
+            self._cursor.execute(
+                'UPDATE Guild SET QID = %s WHERE GuildID = %s',
+                (QID, GID)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
+    def update_user_role_in_queue(self, QID, UID, Role):
+        try:
+            self._cursor.execute(
+                    'UPDATE Role SET Role = %s WHERE QID = %s AND UID = %s',
+                (Role, QID, UID)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
+
     def delete_picture(self, PicID):
         try:
             self._cursor.execute(
@@ -412,10 +628,19 @@ class sql_client:
 
         return
 
-def update_user_access_token(ID, AccessToken, RefreshToken):
-    user_sql[ID]["AccessToken"] = AccessToken
-    user_sql[ID]["RefreshToken"] = RefreshToken
-    return
+    def delete_song_from_queue(self, QID, idx):
+        try:
+            self._cursor.execute(
+                'DELETE FROM QIndex WHERE `QID` = %s AND `Index` = %s',
+                (QID, idx)
+            )
+            self._conn.commit()
+        except Exception as e:
+            # Roll back the transaction if any operation failed
+            self._conn.rollback()
+            print(e)
+
+        return
 
 def user_like_song_query(UserID, UUID):
     return False

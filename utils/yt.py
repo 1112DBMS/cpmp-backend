@@ -7,11 +7,10 @@ import shutil
 from uuid import uuid3, NAMESPACE_URL
 from tqdm import tqdm
 
-import sql
-from sql import sql_client
-import uploader
-from constant import SONG_FOLDER, SITE
-import picture
+from utils.sql import sql_client
+import utils.uploader as uploader
+from utils.constant import SONG_FOLDER, SITE
+import utils.picture as picture
 
 '''
 #####################################
@@ -88,7 +87,7 @@ def uuid(url):
 
 def download_song(url):
     ytObj = YT(url, use_oauth=True, allow_oauth_cache=True)
-    song_fn = "{Id}.{ext}".format(Id=uuid(url=url), ext="webm")
+    song_fn = "{Id}".format(Id=uuid(url=url))
         
     if os.path.isfile(f"{SONG_FOLDER}/{song_fn}"):
         print("File exist, skipping...")

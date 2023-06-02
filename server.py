@@ -1,23 +1,23 @@
 import os
 import flask
+from flask import make_response as mkres
 import requests
-from constant import *
-from middleware import middleware
-import session
-import music
-import user
-import sql
-
 import urllib.parse
 import json
 
-app = flask.Flask(__name__, template_folder=os.path.abspath('./page/'))
+from utils.constant import *
+from utils.middleware import middleware
+import utils.session as session
+import utils.music as music
+import utils.user as user
+import utils.sql as sql
+import utils.musicqueue as musicqueue
+
+app = flask.Flask(__name__)
 
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 
 app.wsgi_app = middleware(app.wsgi_app)
-
-#DB = sql.sql_client(user=SQL_USER, password=SQL_PASSWORD, host=SQL_HOST, port=SQL_PORT, database=SQL_DB)
 
 class MyResponse:
     def __init__(self, data, error = False):
@@ -28,34 +28,6 @@ class MyResponse:
         return
     def json(self):
         return json.dumps(self.d, indent=4)
-
-
-@app.route("/api/login", methods=['GET'])
-def login():
-    UserID = flask.request.environ['user']
-    User = None
-    
-    if user.check_exist(UserID):
-        User = user.get_user(UserID)
-    else:
-        User = {
-            "UserName": "Guest",
-            "Email": "test@ebg.tw",
-            "Photo": "Default",
-            "AccessToken": "Lorem_ipsum",
-            "RefreshToken": "Lorem ipsum"
-        }
-
-    return flask.render_template('login.html',
-            Name=User["UserName"],
-            Session=flask.request.environ['session'],
-            Photo = f'{SITE}/public/{User["Photo"]}',
-            AUTH_URL=AUTH_URL,
-            CLIENT_ID=CLIENT_ID,
-            STATE=flask.request.environ['session'],
-            OAUTH_URL=urllib.parse.quote(OAUTH_URL)
-            #SITE=SITE
-        )
 
 @app.route("/api/logout", methods=['GET'])
 def logout():
@@ -148,7 +120,7 @@ def search():
             res = MyResponse("Wrong data range", error=True)
         
     else:
-        res = MyResponse("Wrong usage.", error=True)
+        res = mkres(MyResponse("Wrong usage.", error=True), 400)
 
     return res.json()
 
@@ -194,13 +166,101 @@ def get_track():
                 res = MyResponse("Invalid UUID or url is given.", error=True)
                 print(e)
         else:
-            res = MyResponse("No id or url is given.", error=True)
+            res = MyResponse("No id nor url is given.", error=True)
 
     else:
-        res = MyResponse("Wrong usage.", error=True)
+        return mkres(MyResponse("Wrong usage.", error=True).json(), 400)
 
     return res.json()
 
+@app.route("/api/queue", methods=['POST'])
+def post_queue():
+    
+    UserID = flask.request.environ['user']
+
+    if UserID is None:
+        return mkres(MyResponse("You must login first.", error=True).json(), 401)
+
+    if not flask.request.is_json:
+        return mkres(MyResponse("Wrong usage.", error=True).json(), 400)
+
+    data = flask.request.get_json()
+
+    TrackID = data.get('id', None)
+    
+    if TrackID is None or not music.check_exist(TrackID):
+        return MyResponse("Invalid track id.", error=True).json()
+    
+    QID = data.get('queue', musicqueue.fetch_queue_ID(UserID))
+
+    if not musicqueue.check_exist(QID):
+        return MyResponse("Invalid queue id.", error=True).json()
+
+    if not musicqueue.can_edit(QID, UserID):
+        return mkres(MyResponse("403 Forbidden.", error=True).json(), 403)
+    
+    try:
+        musicqueue.push_song(QID, TrackID)
+    except Exception as e:
+        print(e)
+        return mkres(MyResponse("500 Internal Server Error.", error=True).json(), 500)
+
+    return MyResponse("Success").json()
+
+@app.route("/api/queue", methods=['GET'])
+def get_queue():
+    UserID = flask.request.environ['user']
+
+    if UserID is None:
+        return mkres(MyResponse("You must login first.", error=True).json(), 401)
+    
+    QID = flask.request.args.get('id', musicqueue.fetch_queue_ID(UserID))
+
+    if not musicqueue.check_exist(QID):
+        return MyResponse("Invalid queue id.", error=True).json()
+
+    tracks = musicqueue.get_queue_tracks(QID)
+    
+    data = {
+        "list": tracks,
+        "total": len(tracks)
+    }
+
+    return MyResponse(data).json()
+
+@app.route("/api/queue", methods=['DELETE'])
+def delete_queue():
+    UserID = flask.request.environ['user']
+
+    if UserID is None:
+        return mkres(MyResponse("You must login first.", error=True).json(), 401)
+    
+    if not flask.request.is_json:
+        return mkres(MyResponse("Wrong usage.", error=True).json(), 400)
+
+    data = flask.request.get_json()
+
+    TrackID = data.get('id', None)
+    SongIDX = data.get('idx', None)
+    QID = data.get('queue', musicqueue.fetch_queue_ID(UserID))
+
+    if SongIDX is None or TrackID is None:
+        return MyResponse("No track specified.", error=True).json()
+
+    stat, info = musicqueue.remove_track(QID, TrackID, SongIDX, UID)
+    if stat == True:
+        return MyResponse("Success").json()
+    else:
+        if info == "Invalid QID":
+            return MyResponse("Invalid Queue id.", error=True).json()
+        elif info == "Forbidden":
+            return mkres(MyResponse("403 Forbidden", error=True).json(), 403)
+        elif info == "ID IDX not match":
+            return MyResponse("Id not matched.", error=True).json()
+
+    return mkres(MyResponse("500 Internal Server Error.", error=True).json(), 500)
+
+
 @app.route("/api/500", methods=['GET'])
 def resp500():
-    return flask.make_response("As you wish.", 500)
+    return mkres("As you wish.", 500)
