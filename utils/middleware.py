@@ -1,5 +1,5 @@
 from werkzeug.wrappers import Request, Response
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import json
 from apscheduler.schedulers.background import BackgroundScheduler
 

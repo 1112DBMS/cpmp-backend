@@ -4,29 +4,20 @@ from PIL import Image
 from uuid import uuid3, NAMESPACE_URL
 from datetime import datetime
 
-from utils.sql import sql_client
+import utils.sql as sql
 from utils.constant import PIC_FOLDER
 
 def uuid(url):
     return str(uuid3(NAMESPACE_URL, url))
 
 def check_exist(ID):
-    client = sql_client()
-    result = client.picture_exist(ID)
-    client.close()
-    return result
+    return sql.picture_exist(ID)
 
 def get_picture(ID):
-    client = sql_client()
-    result = client.get_picture_by_ID(ID)
-    client.close()
-    return result
+    return sql.get_picture_by_ID(ID)
 
 def picture_user_using(ID):
-    client = sql_client()
-    result = client.picture_user_using(ID)
-    client.close()
-    return result
+    return sql.picture_user_using(ID)
 
 def add_picture(url):
     UUID = uuid(url)
@@ -42,10 +33,8 @@ def add_picture(url):
     sizeX, sizeY = img.size
     Time = datetime.now()
     print("Add new PIC:", UUID)
-    client = sql_client()
-    client.add_new_picture(UUID, Time, sizeX, sizeY)
-    client.close()
-    return
+    success = sql.add_new_picture(UUID, Time, sizeX, sizeY)
+    return success
 
 def fetch_picture(url):
     UUID = uuid(url)
@@ -59,18 +48,19 @@ def delete_picture(UUID):
     if not check_exist(UUID):
         return
 
-    client = sql_client()
-    client.delete_picture(UUID)
-    client.close()
+    success = sql.delete_picture(UUID)
 
-    Filepath = f'{PIC_FOLDER}/{UUID}'
-    if os.path.isfile(Filepath):
-        os.remove(Filepath)
+    if success:
+        Filepath = f'{PIC_FOLDER}/{UUID}'
+        if os.path.isfile(Filepath):
+            os.remove(Filepath)
 
-    print("PIC deleted:", UUID)
-
-    return
+        print("PIC deleted:", UUID)
+        return True
+    else:
+        return False
 
 if __name__ == '__main__':
     url = input("New pic URL:")
     add_picture(url)
+    

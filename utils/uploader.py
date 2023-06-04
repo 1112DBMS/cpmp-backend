@@ -4,23 +4,17 @@ from bs4 import BeautifulSoup
 from pytube.contrib.channel import Channel
 from uuid import uuid3, NAMESPACE_URL
 
-from utils.sql import sql_client
+import utils.sql as sql
 import utils.picture as picture
 
 def uuid(url):
     return str(uuid3(NAMESPACE_URL, url))
 
 def get_uploader(ID):
-    client = sql_client()
-    result = client.get_uploader_by_ID(ID)
-    client.close()
-    return result
+    return sql.get_uploader_by_ID(ID)
 
 def check_exist(ID):
-    client = sql_client()
-    result = client.uploader_exist(ID)
-    client.close()
-    return result
+    return sql.uploader_exist(ID)
 
 def add_uploader(url, platform):
     if platform == "youtube":
@@ -55,9 +49,7 @@ def add_uploader(url, platform):
         meta_tag = soup.find('meta', {'itemprop': 'description'})
         Description = meta_tag['content'] if meta_tag else None
 
-        client = sql_client()
-        client.add_new_uploader(UUID, URL, OrigID, Name, Platform, PhotoID, Description)
-        client.close()
+        success = sql.add_new_uploader(UUID, URL, OrigID, Name, Platform, PhotoID, Description)
 
     elif platform == "spotify":
         pass #TODO

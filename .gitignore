@@ -1,3 +1,6 @@
 .env
 nohup.out
 **/__pycache__
+test.py
+run.sh
+log/

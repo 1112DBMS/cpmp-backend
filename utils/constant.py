@@ -4,6 +4,7 @@ import os
 load_dotenv()
 
 SITE = os.getenv('SITE')
+PORT = os.getenv('PORT')
 API_ENDPOINT = "https://discord.com/api"
 
 #OAUTH_URL = SITE + "/oauthCallback"

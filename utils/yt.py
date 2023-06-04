@@ -1,85 +1,13 @@
 from pytube import YouTube as YT, Playlist, Search
-import pytube
-from html.parser import HTMLParser
 from bs4 import BeautifulSoup
 import os
-import shutil
-from uuid import uuid3, NAMESPACE_URL
-from tqdm import tqdm
 
-from utils.sql import sql_client
+from uuid import uuid3, NAMESPACE_URL
+
+import utils.sql as sql
 import utils.uploader as uploader
 from utils.constant import SONG_FOLDER, SITE
 import utils.picture as picture
-
-'''
-#####################################
-
-        Below are Old Stuffs
-
-#####################################
-
-Songs_Path = "/Music"
-
-def get_a_song(link):
-    
-    yt = YT(link, use_oauth=True, allow_oauth_cache=True)
-
-    print("Title: ", yt.title)
-
-    song_fn = "{Id}.{ext}".format(Id=yt.video_id, ext="webm")
-    print(yt.watch_url)
-    print(song_fn)
-        
-    if os.path.isfile("{dir}/{fn}".format(dir=Songs_Path, fn=song_fn)):
-        print("File exist, skipping...")
-
-    else:
-        stream_datas = list(yt.streams.filter(only_audio=True))
-
-        max_itag = ""
-        max_kbps = -1
-        max_type = ""
-    
-        for i in range(len(stream_datas)):
-            parsed_html = BeautifulSoup(str(stream_datas[i]), "html.parser")
-            print(parsed_html)
-            kbps = int(parsed_html.find('stream:')["abr"][:-4])
-            if kbps > max_kbps:
-                max_kbps = kbps
-                max_itag = parsed_html.find('stream:')["itag"]
-                max_type = parsed_html.find('stream:')["mime_type"].split("/")[1]
-
-        ys = yt.streams.get_by_itag(max_itag)
-        ys.download(output_path = Songs_Path, filename = song_fn)
-
-    return "{dir}/{fn}".format(dir=Songs_Path, fn=song_fn)
-
-def parse_playlist(links):
-    playlst = Playlist(links)
-    return list(playlst.video_urls)
-
-def parse_link(link):
-    try:
-        lst = parse_playlist(link)
-        return lst
-    except Exception as e:
-        print(e)
-        print("try single song")
-        try:
-            get_a_song(link)
-            return link
-        except Exception as e:
-            print(e)
-            print("Unknown link")
-            return None
-
-#####################################
-
-        Above are Old Stuffs
-
-#####################################
-'''
 
 def uuid(url):
     ytObj = YT(url=url)
@@ -141,7 +69,6 @@ def add_song(url = None, download = False):
         download_song(url)
         Download = 2
 
-    client = sql_client()
-    client.add_new_song(UUID, url, Platform, Title, UploaderID, thumbnailID, likecount, Length, Download)
-    client.close()
+    success = sql.add_new_song(UUID, url, Platform, Title, UploaderID, thumbnailID, likecount, Length, Download)
+
     return

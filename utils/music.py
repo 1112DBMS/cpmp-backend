@@ -4,7 +4,8 @@ from time import sleep
 
 import utils.yt as YT
 import utils.uploader as uploader
-from utils.sql import sql_client
+import utils.history as history
+import utils.sql as sql
 from utils.constant import WORKERS, DOWNLOAD_LENGTH_LIMIT
 
 class track:
@@ -25,11 +26,10 @@ class track:
         self.Download = True if Song["Download"] == 2 else False
         self.Like = None
         self.UserID = UserID
+        self.Playcount = history.get_playcount(self.SongID)
         
         if UserID is not None:
-            client = sql_client()
-            self.like = client.user_song_like(UserID, SongID)
-            client.close()
+            self.like = sql.user_song_like(UserID, SongID)
         return
     
     def to_dict(self):
@@ -42,27 +42,19 @@ class track:
             "uploaderId": self.UploaderID,
             "id": self.SongID,
             "download": self.Download,
-            "like": self.Like
+            "like": self.Like,
+            "playCount": self.Playcount
         }
         return data
 
 def check_exist(ID):
-    client = sql_client()
-    result = client.song_exist(ID)
-    client.close()
-    return result
+    return sql.song_exist(ID)
 
 def get_song(ID):
-    client = sql_client()
-    result = client.get_song_by_ID(ID)
-    client.close()
-    return result
+    return sql.get_song_by_ID(ID)
 
 def set_download(ID, state):
-    client = sql_client()
-    client.update_song_download(ID, state)
-    client.close()
-    return 
+    return sql.update_song_download(ID, state)
 
 def fetch_song(url = None, UUID = None):
     if UUID is not None:

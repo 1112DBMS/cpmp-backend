@@ -1,41 +1,24 @@
 import requests
-import uuid
 
 import utils.picture as picture
 import utils.musicqueue as musicqueue
 from utils.constant import CLIENT_ID, CLIENT_SECRET, TOKEN_URL
-from utils.sql import sql_client
+import utils.sql as sql
 
 def check_exist(ID):
-    client = sql_client()
-    result = client.user_exist(ID)
-    client.close()
-    return result
+    return sql.user_exist(ID)
 
 def get_user(ID):
-    client = sql_client()
-    result = client.get_user_by_ID(ID)
-    client.close()
-    return result
+    return sql.get_user_by_ID(ID)
 
 def update_photo(UserID, Photo):
-    client = sql_client()
-    client.update_user_photo(UserID = UserID, PicID = Photo)
-    client.close()
-    return
+    return sql.update_user_photo(UserID = UserID, PicID = Photo)
 
 def update_email(UserID, email):
-    client = sql_client()
-    client.update_user_email(UserID = UserID, email = email)
-    client.close()
-    return
+    return sql.update_user_email(UserID = UserID, email = email)
 
 def update_tokens(UserID, AccessToken, RefreshToken):
-    client = sql_client()
-    client.update_user_tokens(UserID, AccessToken, RefreshToken)
-    client.close()
-    return
-
+    return sql.update_user_tokens(UserID, AccessToken, RefreshToken)
 
 def fetch_dc_info(AccessToken = None, RefreshToken = None, UserID = None):
     if UserID is not None:
@@ -73,9 +56,8 @@ def add_user(res_data, AccessToken, RefreshToken):
     PicID = download_photo(UserID, ava_hash, discriminator)
 
     print("Creating user:", UserID, UserName)
-    client = sql_client()
-    client.add_new_user(UserID, UserName, email, PicID, AccessToken, RefreshToken)
-    client.close()
+
+    success = sql.add_new_user(UserID, UserName, email, PicID, AccessToken, RefreshToken)
 
     return
 

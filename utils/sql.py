@@ -1,6 +1,16 @@
+from __future__ import annotations
+from typing import List, Set, Dict, Tuple
+from typing import Union, Optional, Any
+
 import mysql.connector
+from loguru import logger
+from datetime import datetime
 
 from utils.constant import SQL_USER, SQL_PASSWORD, SQL_HOST, SQL_PORT, SQL_DB
+
+now = datetime.now()
+date = now.strftime("%Y-%m-%d")
+logfile = logger.add(f'./log/{date}.log')
 
 class sql_client:
 
@@ -19,628 +29,618 @@ class sql_client:
         self._conn.close()
         return
 
-    def add_new_user(self, ID, Name, email, photoID, AccessToken, RefreshToken):
+    def execute(self, cmd: str, var: Tuple[Any, ...], write: bool):
+        error: bool = False
         try:
-            self._cursor.execute(
-                'INSERT INTO User (UserID, UserName, Email, Photo, AccessToken, RefreshToken) VALUES (%s,%s,%s,%s,%s,%s)',
-                (ID, Name, email, photoID, AccessToken, RefreshToken)
-            )
-            self._conn.commit()
+            self._cursor.execute(cmd, var)
+
+            if write == True:
+                self._conn.commit()
+            else:
+                result = self._cursor.fetchall()
+    
         except Exception as e:
-            # Roll back the transaction if any operation failed
+            error = True
             self._conn.rollback()
+            logger.error(e)
 
-        return
-
-    def add_new_session(self, session):
-        try:
-            self._cursor.execute(
-                'INSERT INTO Session (SessionID, UserID) VALUES (%s,%s)',
-                (session, None)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-
-        return
-
-    def add_new_song(self, SongID, URL, Platform, Title, UploaderID, ThumbnailID, Likecount, Length, Download):
-        try:
-            self._cursor.execute(
-                'INSERT INTO Song (SongID, OrigURL, Platform, Title, Uploader, SThumbnail, LikeCount, Length, Download) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',
-                (SongID, URL, Platform, Title, UploaderID, ThumbnailID, Likecount, Length, Download)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-
-        return
-
-    def add_new_picture(self, UUID, Time, sizeX, sizeY):
-        try:
-            self._cursor.execute(
-                'INSERT INTO Picture (PicID, Time, SizeX, SizeY) VALUES (%s,%s,%s,%s)',
-                (UUID, Time, sizeX, sizeY)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-
-        return
-
-    def add_new_uploader(self, ID, URL, OrigID, Name, Platform, Photo, Description):
-        try:
-            self._cursor.execute(
-                'INSERT INTO Uploader (UploaderID, URL, OrigID, Name, UPlatform, Description, UPhoto) VALUES (%s,%s,%s,%s,%s,%s,%s)',
-                (ID, URL, OrigID, Name, Platform, Description, Photo)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
-
-        return
-
-    def add_new_queue(self, QID, Name, Loop, Lock):
-        try:
-            self._cursor.execute(
-                'INSERT INTO Queue (QueueID, Name, LoopStat, Locked) VALUES (%s,%s,%s,%s)',
-                (QID, Name, Loop, Lock)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
-
-        return
-
-    def add_song_to_queue(self, QID, idx, SID, Time):
-        try:
-            self._cursor.execute(
-                'INSERT INTO QIndex (`QID`, `Index`, `QSongID`, `Time`) VALUES (%s,%s,%s,%s)',
-                (QID, idx, SID, Time)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
-
-        return
-
-    def add_user_role_in_queue(self, QID, UID, Role):
-        try:
-            self._cursor.execute(
-                'INSERT INTO Role (QID, UID, Role) VALUES (%s,%s,%s)',
-                (QID, UID, Role)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
-
-        return
-
-    def user_exist(self, UserID):
-        try:
-            self._cursor.execute(
-                'SELECT EXISTS (SELECT * FROM User WHERE UserID = %s) AS is_exists',
-                (UserID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        if result[0][0] == 1:
-            return True
+        if write == True:
+            return not error
         else:
-            return False
-
-    def session_exist(self, SessionID):
+            return result
+    
+    def execute_multi(self, cmds:List[str], vars: List[Tuple[Any, ...]], write: bool):
+        error: bool = False
+        results: List[Any] = []
         try:
-            self._cursor.execute(
-                'SELECT EXISTS (SELECT * FROM Session WHERE SessionID = %s) AS is_exists',
-                (SessionID,)
-            )
-            result = self._cursor.fetchall()
+            for cmd, var in zip(cmds, vars):
+                self._cursor.execute(cmd, var)
+                if write == False:
+                    results.append(self._cursor.fetchall())
+
+            if write == True:
+                self._conn.commit()
+    
         except Exception as e:
-            # Roll back the transaction if any operation failed
+            error = True
             self._conn.rollback()
-        
-        if result[0][0] == 1:
-            return True
+            logger.error(e)
+
+        if write == True:
+            return not error
         else:
-            return False
+            return results
 
-    def song_exist(self, SongID):
-        try:
-            self._cursor.execute(
-                'SELECT EXISTS (SELECT * FROM Song WHERE SongID = %s) AS is_exists',
-                (SongID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        if result[0][0] == 1:
-            return True
-        else:
-            return False
+def add_new_user(ID, Name, email, photoID, AccessToken, RefreshToken):
+    cmd: str = 'INSERT INTO User (UserID, UserName, Email, Photo, AccessToken, RefreshToken) VALUES (%s,%s,%s,%s,%s,%s)'
+    var: Tuple[Any, ...] = (ID, Name, email, photoID, AccessToken, RefreshToken)
+    write: bool = True
 
-    def uploader_exist(self, UploaderID):
-        try:
-            self._cursor.execute(
-                'SELECT EXISTS (SELECT * FROM Uploader WHERE UploaderID = %s) AS is_exists',
-                (UploaderID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        if result[0][0] == 1:
-            return True
-        else:
-            return False
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
 
-    def picture_exist(self, PicID):
-        try:
-            self._cursor.execute(
-                'SELECT EXISTS (SELECT * FROM Picture WHERE PicID = %s) AS is_exists',
-                (PicID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
+    return result
 
-        if result[0][0] == 1:
-            return True
-        else:
-            return False
-        
-    def queue_exist(self, QID):
-        try:
-            self._cursor.execute(
-                'SELECT EXISTS (SELECT * FROM Queue WHERE QueueID = %s) AS is_exists',
-                (QID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
+def add_new_session(session):
+    cmd: str = 'INSERT INTO Session (SessionID, UserID) VALUES (%s,%s)'
+    var: Tuple[Any, ...] = (session, None)
+    write: bool = True
 
-        if result[0][0] == 1:
-            return True
-        else:
-            return False
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
 
-    def picture_user_using(self, PicID):
-        try:
-            self._cursor.execute(
-                'SELECT EXISTS (SELECT * FROM User WHERE Photo = %s) AS is_exists',
-                (PicID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
+    return result
 
-        if result[0][0] == 1:
-            return True
-        else:
-            return False
-        
-    def user_song_like(self, UserID, SongID):
-        try:
-            self._cursor.execute(
-                'SELECT EXISTS (SELECT * FROM Like WHERE LUser = %s AND LSong = %s) AS is_exists',
-                (UserID, SongID)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
+def add_new_song(SongID, URL, Platform, Title, UploaderID, ThumbnailID, Likecount, Length, Download):
+    cmd: str = 'INSERT INTO Song (SongID, OrigURL, Platform, Title, Uploader, SThumbnail, LikeCount, Length, Download) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+    var: Tuple[Any, ...] = (SongID, URL, Platform, Title, UploaderID, ThumbnailID, Likecount, Length, Download)
+    write: bool = True
 
-        if result[0][0] == 1:
-            return True
-        else:
-            return False
-        
-    def get_user_by_ID(self, UserID):
-        try:
-            self._cursor.execute(
-                'SELECT * FROM User WHERE UserID = %s',
-                (UserID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        data = {
-            "UserID": result[0][0],
-            "UserName": result[0][1],
-            "Email": result[0][2],
-            "Photo": result[0][3],
-            "AccessToken": result[0][4],
-            "RefreshToken": result[0][5]
-        }
-        return data
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
 
-    def get_user_by_session(self, session):
-        try:
-            self._cursor.execute(
-                'SELECT * FROM Session WHERE SessionID = %s',
-                (session,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        data = {
-            "UserID": result[0][1]
-        }
-        return data
+    return result
 
-    def get_song_by_ID(self, SongID):
-        try:
-            self._cursor.execute(
-                'SELECT * FROM Song WHERE SongID = %s',
-                (SongID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        data = {
-            "SongID": result[0][0],
-            "OrigURL": result[0][1],
-            "Platform": result[0][2],
-            "Title": result[0][3],
-            "Uploader": result[0][4],
-            "Thumbnail": result[0][5],
-            "LikeCount": result[0][6],
-            "Length": result[0][7],
-            "Download": result[0][8]
-        }
-        return data
+def add_new_picture(UUID, Time, sizeX, sizeY):
+    cmd: str = 'INSERT INTO Picture (PicID, Time, SizeX, SizeY) VALUES (%s,%s,%s,%s)'
+    var: Tuple[Any, ...] = (UUID, Time, sizeX, sizeY)
+    write: bool = True
 
-    def get_uploader_by_ID(self, UploaderID):
-        try:
-            self._cursor.execute(
-                'SELECT * FROM Uploader WHERE UploaderID = %s',
-                (UploaderID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        data = {
-            "UploaderID": result[0][0],
-            "URL": result[0][1],
-            "OrigID": result[0][2],
-            "Name": result[0][3],
-            "Platform": result[0][4],
-            "Description": result[0][5],
-            "Photo": result[0][5]
-        }
-        return data
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
 
-    def get_all_uploader(self):
-        try:
-            self._cursor.execute(
-                'SELECT * FROM Uploader'
-            )
-            results = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+    return result
 
-        return_data = []
-        for result in results:
-            data = {
-                "UploaderID": result[0],
-                "URL": result[1],
-                "OrigID": result[2],
-                "Name": result[3],
-                "Platform": result[4],
-                "Description": result[5],
-                "Photo": result[5]
-            }
-            return_data.append(data)
-        return return_data
+def add_new_uploader(ID, URL, OrigID, Name, Platform, Photo, Description):
+    cmd: str = 'INSERT INTO Uploader (UploaderID, URL, OrigID, Name, UPlatform, Description, UPhoto) VALUES (%s,%s,%s,%s,%s,%s,%s)'
+    var: Tuple[Any, ...] = (ID, URL, OrigID, Name, Platform, Description, Photo)
+    write: bool = True
 
-    def get_picture_by_ID(self, PicID):
-        try:
-            self._cursor.execute(
-                'SELECT * FROM Picture WHERE PicID = %s',
-                (PicID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        data = {
-            "PicID": result[0][0],
-            "Time": result[0][1],
-            "SizeX": result[0][2],
-            "SizeY": result[0][3]
-        }
-        return data
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
 
-    def get_qid_by_uid(self, ID):
-        try:
-            self._cursor.execute(
-                'SELECT QID FROM User WHERE UserID = %s',
-                (ID,)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        if len(result) == 0:
-            return None
-        else:
-            return result[0][0]
-    '''
-        data = {
-            "QueueID": result[0][0],
-            "Name": result[0][1],
-            "QUser": result[0][2],
-            "QGuild": result[0][3],
-            "Loop": result[0][4],
-            "Locked": result[0][5]
-        }
-        return data
-    '''
+    return result
 
-    def get_queue_rows(self, QID):
-        try:
-            self._cursor.execute(
-                'SELECT * FROM QIndex WHERE QID = %s order by `Index`',
-                (QID,)
-            )
-            results = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
-        
-        return ([result[2] for result in results], [result[3] for result in results])
+def add_new_queue(QID, Name, Loop, Lock):
+    cmd: str = 'INSERT INTO Queue (QueueID, Name, LoopStat, Locked) VALUES (%s,%s,%s,%s)'
+    var: Tuple[Any, ...] = (QID, Name, Loop, Lock)
+    write: bool = True
 
-    def get_queue_len(self, QID):
-        try:
-            self._cursor.execute(
-                'SELECT COUNT(*) FROM QIndex WHERE QID = %s',
-                (QID,)
-            )
-            results = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        return results[0][0]
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
 
-    def get_user_role_in_queue(self, QID, UID):
-        try:
-            self._cursor.execute(
-                'SELECT Role FROM Role WHERE QID = %s AND UID = %s',
-                (QID, UID)
-            )
-            result = self._cursor.fetchall()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-        
-        if len(result) == 0:
-            return None
+    return result
 
+def add_song_to_queue(QID, idx, SID, Time):
+    cmd: str = 'INSERT INTO QIndex (`QID`, `Index`, `QSongID`, `Time`) VALUES (%s,%s,%s,%s)'
+    var: Tuple[Any, ...] = (QID, idx, SID, Time)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    return result
+
+def add_user_role_in_queue(QID, UID, Role):
+    cmd: str = 'INSERT INTO Role (QID, UID, Role) VALUES (%s,%s,%s)'
+    var: Tuple[Any, ...] = (QID, UID, Role)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    return result
+
+def add_new_history(UID, SID, Time):
+    cmd: str = 'INSERT INTO History (HUser, HSong, Timestamp) VALUES (%s,%s,%s)'
+    var: Tuple[Any, ...] = (UID, SID, Time)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    return result
+
+def user_exist(UserID):
+    cmd: str = 'SELECT EXISTS (SELECT * FROM User WHERE UserID = %s) AS is_exists'
+    var: Tuple[Any, ...] = (UserID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+ 
+    if result[0][0] == 1:
+        return True
+    else:
+        return False
+
+def session_exist(SessionID):
+    cmd: str = 'SELECT EXISTS (SELECT * FROM Session WHERE SessionID = %s) AS is_exists'
+    var: Tuple[Any, ...] = (SessionID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+ 
+    if result[0][0] == 1:
+        return True
+    else:
+        return False
+
+def song_exist(SongID):
+    cmd: str = 'SELECT EXISTS (SELECT * FROM Song WHERE SongID = %s) AS is_exists'
+    var: Tuple[Any, ...] = (SongID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    if result[0][0] == 1:
+        return True
+    else:
+        return False
+
+def uploader_exist(UploaderID):
+    cmd: str = 'SELECT EXISTS (SELECT * FROM Uploader WHERE UploaderID = %s) AS is_exists'
+    var: Tuple[Any, ...] = (UploaderID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+   
+    if result[0][0] == 1:
+        return True
+    else:
+        return False
+
+def picture_exist(PicID):
+    cmd: str = 'SELECT EXISTS (SELECT * FROM Picture WHERE PicID = %s) AS is_exists'
+    var: Tuple[Any, ...] = (PicID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    if result[0][0] == 1:
+        return True
+    else:
+        return False
+    
+def queue_exist(QID):
+    cmd: str = 'SELECT EXISTS (SELECT * FROM Queue WHERE QueueID = %s) AS is_exists'
+    var: Tuple[Any, ...] = (QID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    if result[0][0] == 1:
+        return True
+    else:
+        return False
+
+def queue_line_exist(QID, SID, IDX):
+    cmd: str = 'SELECT EXISTS (SELECT * FROM QIndex WHERE QID = %s AND QSongID = %s AND `Index` = %s) AS is_exists'
+    var: Tuple[Any, ...] = (QID, SID, IDX)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    if result[0][0] == 1:
+        return True
+    else:
+        return False
+
+def picture_user_using(PicID):
+    cmd: str = 'SELECT EXISTS (SELECT * FROM User WHERE Photo = %s) AS is_exists'
+    var: Tuple[Any, ...] = (PicID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    if result[0][0] == 1:
+        return True
+    else:
+        return False
+    
+def user_song_like(UserID, SongID):
+    cmd: str = 'SELECT EXISTS (SELECT * FROM Like WHERE LUser = %s AND LSong = %s) AS is_exists'
+    var: Tuple[Any, ...] = (UserID, SongID)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    if result[0][0] == 1:
+        return True
+    else:
+        return False
+    
+def get_user_by_ID(UserID):
+    cmd: str = 'SELECT * FROM User WHERE UserID = %s'
+    var: Tuple[Any, ...] = (UserID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    data = {
+        "UserID": result[0][0],
+        "UserName": result[0][1],
+        "Email": result[0][2],
+        "Photo": result[0][3],
+        "AccessToken": result[0][4],
+        "RefreshToken": result[0][5]
+    }
+    return data
+
+def get_user_by_session(session):
+    cmd: str = 'SELECT * FROM Session WHERE SessionID = %s'
+    var: Tuple[Any, ...] = (session,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    data = {
+        "UserID": result[0][1]
+    }
+    return data
+
+def get_song_by_ID(SongID):
+    cmd: str = 'SELECT * FROM Song WHERE SongID = %s'
+    var: Tuple[Any, ...] = (SongID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    data = {
+        "SongID": result[0][0],
+        "OrigURL": result[0][1],
+        "Platform": result[0][2],
+        "Title": result[0][3],
+        "Uploader": result[0][4],
+        "Thumbnail": result[0][5],
+        "LikeCount": result[0][6],
+        "Length": result[0][7],
+        "Download": result[0][8]
+    }
+    return data
+
+def get_uploader_by_ID(UploaderID):
+    cmd: str = 'SELECT * FROM Uploader WHERE UploaderID = %s'
+    var: Tuple[Any, ...] = (UploaderID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    
+    data = {
+        "UploaderID": result[0][0],
+        "URL": result[0][1],
+        "OrigID": result[0][2],
+        "Name": result[0][3],
+        "Platform": result[0][4],
+        "Description": result[0][5],
+        "Photo": result[0][5]
+    }
+    return data
+
+def get_picture_by_ID(PicID):
+    cmd: str = 'SELECT * FROM Picture WHERE PicID = %s'
+    var: Tuple[Any, ...] = (PicID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    data = {
+        "PicID": result[0][0],
+        "Time": result[0][1],
+        "SizeX": result[0][2],
+        "SizeY": result[0][3]
+    }
+    return data
+
+def get_qid_by_uid(ID):
+    cmd: str = 'SELECT QID FROM User WHERE UserID = %s'
+    var: Tuple[Any, ...] = (ID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    if len(result) == 0:
+        return None
+    else:
         return result[0][0]
 
-    def update_session_user(self, session, user):
-        try:
-            self._cursor.execute(
-                'UPDATE Session SET UserID = %s WHERE SessionID = %s',
-                (user, session)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def get_queue_rows(QID):
+    cmd: str = 'SELECT * FROM QIndex WHERE QID = %s order by `Index`'
+    var: Tuple[Any, ...] = (QID,)
+    write: bool = False
 
-        return
+    client = sql_client()
+    results = client.execute(cmd, var, write)
+    client.close()
+  
+    return ([result[2] for result in results], [result[3] for result in results])
 
-    def update_song_download(self, SongID, download):
-        try:
-            self._cursor.execute(
-                'UPDATE Song SET Download = %s WHERE SongID = %s',
-                (download, SongID)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def get_queue_len(QID):
+    cmd: str = 'SELECT COUNT(*) FROM QIndex WHERE QID = %s'
+    var: Tuple[Any, ...] = (QID,)
+    write: bool = False
 
-        return
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
 
-    def update_user_photo(self, UserID, PicID):
-        try:
-            self._cursor.execute(
-                'UPDATE User SET Photo = %s WHERE UserID = %s',
-                (PicID, UserID)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+    return result[0][0]
 
-        return
+def get_queue_info(QID):
+    cmd: str = 'SELECT * FROM Queue WHERE QueueID = %s'
+    var: Tuple[Any, ...] = (QID,)
+    write: bool = False
 
-    def update_user_email(self, UserID, email):
-        try:
-            self._cursor.execute(
-                'UPDATE User SET Email = %s WHERE UserID = %s',
-                (email, UserID)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    
+    data = {
+        "QueueID": result[0][0],
+        "Name": result[0][1],
+        "Loop": result[0][2],
+        "Locked": result[0][3]
+    }
+    return data
 
-        return
+def get_user_role_in_queue(QID, UID):
+    cmd: str = 'SELECT Role FROM Role WHERE QID = %s AND UID = %s'
+    var: Tuple[Any, ...] = (QID, UID)
+    write: bool = False
 
-    def update_uploader_description(self, UploaderID, Description):
-        try:
-            self._cursor.execute(
-                'UPDATE Uploader SET Description = %s WHERE UploaderID = %s',
-                (Description, UploaderID)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
 
-        return
+    if len(result) == 0:
+        return None
+    else:
+        return result[0][0]
 
-    def update_user_tokens(self, UserID, AccTok, RefTok):
-        try:
-            self._cursor.execute(
-                'UPDATE User SET AccessToken = %s, RefreshToken = %s WHERE UserID = %s',
-                (AccTok, RefTok, UserID)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def get_user_topk(UID, k):
+    cmd: str = 'SELECT HSong, Count(*) as `Count`, MAX(`Timestamp`) as `Timestamp` FROM History WHERE HUser = %s GROUP BY HSong order by `Count` desc, `Timestamp` desc limit %s'
+    var: Tuple[Any, ...] = (UID, k)
+    write: bool = False
 
-        return
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    
+    if len(result) == 0:
+        return ([], 0)
+    else:
+        return tuple(map(list, zip(*result)))[:2]
 
-    def update_queue_song_index_down(self, QID, start, end):
-        try:
-            self._cursor.execute(
-                'UPDATE QIndex SET `Index` = `Index` - POW(2, 31) WHERE QID = %s AND `Index` >= %s AND `Index` < %s',
-                (QID, start, end)
-            )
-            self._cursor.execute(
-                'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) + 1 WHERE QID = %s AND `Index` < 0',
-                (QID,)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def get_all_topk(k):
+    cmd: str = 'SELECT HSong, Count(*) as `Count` FROM History GROUP BY HSong order by `Count` desc limit %s'
+    var: Tuple[Any, ...] = (k,)
+    write: bool = False
 
-        return
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    
+    if len(result) == 0:
+        return ([], 0)
+    else:
+        return tuple(map(list, zip(*result)))
 
-    def update_queue_song_index_up(self, QID, start, end):
-        try:
-            self._cursor.execute(
-                'UPDATE QIndex SET `Index` = `Index` - POW(2, 31) WHERE QID = %s AND `Index` >= %s AND `Index` < %s',
-                (QID, start, end)
-            )
-            self._cursor.execute(
-                'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) - 1 WHERE QID = %s AND `Index` < 0',
-                (QID,)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def get_song_playcount(SID):
+    cmd: str = 'SELECT Count(*) as `Count` FROM History WHERE HSong = %s'
+    var: Tuple[Any, ...] = (SID,)
+    write: bool = False
 
-        return
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result[0][0]
 
-    def update_queue_owner(self, QID, UID):
-        try:
-            self._cursor.execute(
-                'UPDATE User SET QID = %s WHERE UserID = %s',
-                (QID, UID)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def update_session_user(session, user):
+    cmd: str = 'UPDATE Session SET UserID = %s WHERE SessionID = %s'
+    var: Tuple[Any, ...] = (user, session)
+    write: bool = True
 
-        return
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
 
-    def update_queue_guild(self, QID, GID):
-        try:
-            self._cursor.execute(
-                'UPDATE Guild SET QID = %s WHERE GuildID = %s',
-                (QID, GID)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def update_song_download(SongID, download):
+    cmd: str = 'UPDATE Song SET Download = %s WHERE SongID = %s'
+    var: Tuple[Any, ...] = (download, SongID)
+    write: bool = True
 
-        return
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
 
-    def update_user_role_in_queue(self, QID, UID, Role):
-        try:
-            self._cursor.execute(
-                    'UPDATE Role SET Role = %s WHERE QID = %s AND UID = %s',
-                (Role, QID, UID)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def update_user_photo(UserID, PicID):
+    cmd: str = 'UPDATE User SET Photo = %s WHERE UserID = %s'
+    var: Tuple[Any, ...] = (PicID, UserID)
+    write: bool = True
 
-        return
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
 
-    def delete_picture(self, PicID):
-        try:
-            self._cursor.execute(
-                'DELETE FROM Picture WHERE PicID = %s',
-                (PicID,)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def update_user_email(UserID, email):
+    cmd: str = 'UPDATE User SET Email = %s WHERE UserID = %s'
+    var: Tuple[Any, ...] = (email, UserID)
+    write: bool = True
 
-        return
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
 
-    def delete_song_from_queue(self, QID, idx):
-        try:
-            self._cursor.execute(
-                'DELETE FROM QIndex WHERE `QID` = %s AND `Index` = %s',
-                (QID, idx)
-            )
-            self._conn.commit()
-        except Exception as e:
-            # Roll back the transaction if any operation failed
-            self._conn.rollback()
-            print(e)
+def update_uploader_description(UploaderID, Description):
+    cmd: str = 'UPDATE Uploader SET Description = %s WHERE UploaderID = %s'
+    var: Tuple[Any, ...] = (Description, UploaderID)
+    write: bool = True
 
-        return
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
 
-def user_like_song_query(UserID, UUID):
-    return False
+def update_user_tokens(UserID, AccTok, RefTok):
+    cmd: str = 'UPDATE User SET AccessToken = %s, RefreshToken = %s WHERE UserID = %s'
+    var: Tuple[Any, ...] = (AccTok, RefTok, UserID)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
+
+def update_queue_song_index_down(QID, start, end):
+    cmds: List[str] = [
+        'UPDATE QIndex SET `Index` = `Index` - POW(2, 31) WHERE QID = %s AND `Index` >= %s AND `Index` < %s',
+        'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) + 1 WHERE QID = %s AND `Index` < 0'
+    ]
+    vars: List[Tuple[Any, ...]] = [
+        (QID, start, end),
+        (QID,)
+    ]
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute_multi(cmds, vars, write)
+    client.close()
+    return result
+
+def update_queue_song_index_up(QID, start, end):
+    cmds: List[str] = [
+        'UPDATE QIndex SET `Index` = `Index` - POW(2, 31) WHERE QID = %s AND `Index` >= %s AND `Index` < %s',
+        'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) - 1 WHERE QID = %s AND `Index` < 0'
+    ]
+    vars: List[Tuple[Any, ...]] = [
+        (QID, start, end),
+        (QID,)
+    ]
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute_multi(cmds, vars, write)
+    client.close()
+    return result
+
+def update_queue_owner(QID, UID):
+    cmd: str = 'UPDATE User SET QID = %s WHERE UserID = %s'
+    var: Tuple[Any, ...] = (QID, UID)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
+
+def update_queue_guild(QID, GID):
+    cmd: str = 'UPDATE Guild SET QID = %s WHERE GuildID = %s'
+    var: Tuple[Any, ...] = (QID, GID)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
+
+def update_user_role_in_queue(QID, UID, Role):
+    cmd: str = 'UPDATE Role SET Role = %s WHERE QID = %s AND UID = %s'
+    var: Tuple[Any, ...] = (Role, QID, UID)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
+
+def update_queue_loop(QID: str, Loop: int):
+    cmd: str = 'UPDATE Queue SET LoopStat = %s WHERE QueueID = %s'
+    var: Tuple[Any, ...] = (Loop, QID)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
+
+def delete_picture(PicID):
+    cmd = 'DELETE FROM Picture WHERE PicID = %s'
+    var: Tuple[Any, ...] = (PicID,)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
+
+def delete_song_from_queue(QID, idx):
+    cmd = 'DELETE FROM QIndex WHERE `QID` = %s AND `Index` = %s'
+    var: Tuple[Any, ...] = (QID, idx)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result

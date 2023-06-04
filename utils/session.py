@@ -1,34 +1,20 @@
 from uuid import uuid4
 
-from utils.sql import sql_client
+import utils.sql as sql
 
 def CreateSession():
     session = str(uuid4())
-    client = sql_client()
-    client.add_new_session(session)
-    client.close()
+    sql.add_new_session(session)
     return session
 
 def check_exist(session):
-    client = sql_client()
-    result = client.session_exist(session)
-    client.close()
-    return result
+    return sql.session_exist(session)
 
 def Session2User(session):
-    client = sql_client()
-    result = client.get_user_by_session(session)
-    client.close()
-    return result["UserID"]
+    return sql.get_user_by_session(session)["UserID"]
 
 def bind(session, user):
-    client = sql_client()
-    client.update_session_user(session, user)
-    client.close()
-    return
+    return sql.update_session_user(session, user)
 
 def unbind(session):
-    client = sql_client()
-    client.update_session_user(session, None)
-    client.close()
-    return
+    return sql.update_session_user(session, None)
