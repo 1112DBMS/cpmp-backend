@@ -270,9 +270,6 @@ def post_queue():
 def delete_queue():
     UserID = flask.request.environ['user']
 
-    if UserID is None:
-        return mkres(MyResponse("You must login first.", error=True).json(), 401)
-    
     if not flask.request.is_json:
         return res400()
 
@@ -281,22 +278,22 @@ def delete_queue():
     TrackID = data.get('id', None)
     SongIDX = data.get('idx', None)
     QID = data.get('queue', musicqueue.fetch_queue_ID(UserID))
-
-    if SongIDX is None or TrackID is None:
-        return MyResponse("No track specified.", error=True).json()
-
+    
     stat, info = musicqueue.remove_track(QID, TrackID, SongIDX, UserID)
-    if stat == True:
-        return MyResponse("Success").json()
-    else:
-        if info == "Invalid QID":
-            return MyResponse("Invalid Queue id.", error=True).json()
-        elif info == "Forbidden":
-            return res403()
-        elif info == "ID IDX not match":
-            return MyResponse("Id not matched.", error=True).json()
 
-    return res500()
+    if stat == True:
+        return res200()
+    else:
+        if info == "Not login.":
+            return res401()
+        elif info.startswith("Value") and info.endswith("invalid."):
+            return res400(info)
+        elif info == "No permission.":
+            return res403()
+        elif info == "Idx not matched.":
+            return res400(info)
+        else:
+            return res500()
 
 @app.route("/api/queue/loop", methods=['POST'])
 def set_loop():
@@ -312,21 +309,19 @@ def set_loop():
 
     stat, info = musicqueue.set_loop(UserID, QID, Loop)
 
-    if stat == False:
+    if stat == True:
+        return res200()
+    else:
         if info == "Not login.":
             return res401()
-        elif info == "Invalid queue id.":
+        elif info == "Value queue id invalid.":
             return res400(info)
-        elif info == "Loop value not given.":
+        elif info == "Value loop invalid.":
             return res400(info)
-        elif info == "No permission":
+        elif info == "No permission.":
             return res403()
-        elif info == "500":
+        else:
             return res500()
-
-    else:
-        return res200()
-    
 
 
 #########################################

@@ -1,53 +1,49 @@
+from __future__ import annotations
+from typing import List, Set, Dict, Tuple
+from typing import Union, Optional, Any
 from uuid import uuid4
 from datetime import datetime
 
 import utils.music as music
 import utils.sql as sql
 
-def check_exist(QID):
+def check_exist(QID) -> bool:
     return sql.queue_exist(QID)
 
-def get_queue_id_by_user(UID):
+def get_queue_id_by_user(UID) -> str:
     return sql.get_qid_by_uid(UID)
 
-def get_queue_rows(QID):
+def get_queue_rows(QID) -> Tuple[List[str], List["datetime"]]:
     return sql.get_queue_rows(QID)
 
-def get_queue_len(QID):
+def get_queue_len(QID) -> int:
     return sql.get_queue_len(QID)
 
-def add_queue(QID, Name):
+def add_queue(QID, Name) -> bool:
     return sql.add_new_queue(QID, Name, 0, 0)
 
-def get_queue(QID):
+def get_queue(QID) -> Dict[str, Any]:
     return sql.get_queue_info(QID)
 
-def push_song(QID, SongID, idx = None):
+def push_song(QID, SongID, idx = None) -> bool:
     qlen = get_queue_len(QID)
+    if idx is None:
+        idx = qlen
     Time = datetime.now()
 
-    if idx is None:
-        return sql.add_song_to_queue(QID, qlen, SongID, Time)
-    else:
-        res1 = sql.update_queue_song_index_down(QID, idx, qlen)
-        res2 = sql.add_song_to_queue(QID, idx, SongID, Time)
-        return (res1 and res2)
+    return sql.add_song_to_queue(QID, idx, qlen, SongID, Time)
 
-def delete_song(QID, idx):
+def delete_song(QID, idx) -> bool:
     qlen = get_queue_len(QID)
+    return sql.delete_song_from_queue(QID, idx, qlen)
 
-    res1 = sql.delete_song_from_queue(QID, idx)
-    res2 = sql.update_queue_song_index_up(QID, idx+1, qlen)
-
-    return (res1 and res2)
-
-def bind_queue_to_user(QID, UID):
+def bind_queue_to_user(QID, UID) -> bool:
     return sql.update_queue_owner(QID, UID)
 
-def bind_queue_to_guild(QID, GID):
+def bind_queue_to_guild(QID, GID) -> bool:
     return sql.update_queue_guild(QID, GID)
 
-def get_role(QID, UID):
+def get_role(QID, UID) -> str:
     return sql.get_user_role_in_queue(QID, UID)
 
 def set_role(QID, UID, Role):
@@ -60,10 +56,10 @@ def set_role(QID, UID, Role):
 
     return result
 
-def line_match(QID, SID, IDX):
+def line_match(QID, SID, IDX) -> bool:
     return sql.queue_line_exist(QID, SID, IDX)
 
-def uuid():
+def uuid() -> str:
     return str(uuid4())
 
 ##############################
@@ -89,7 +85,7 @@ def set_editor(QID, UID):
 def set_viewer(QID, UID):
     return set_role(QID, UID, "Viewer")
 
-def fetch_queue_ID(UID):
+def fetch_queue_ID(UID) -> str:
     QID = get_queue_id_by_user(UID)
 
     if QID is None:
@@ -109,25 +105,32 @@ def get_queue_tracks(QID):
 
     return [{**x, "time":y.isoformat()}for x, y in zip(tracks, time_rows)]
 
-def remove_track(QID, SID, SIDX, UID):
-    if not check_exist(QID):
-        return (False, "Invalid QID")
-    if not can_edit(QID, UID):
-        return (False, "Forbidden")
-    if not line_match(QID, SID, SIDX):
-        return (False, "ID IDX not match")
-    else:
-        delete_song(QID, SIDX)
-        return (True, "Success")
-    return (False, "Unknown error")
-
-def set_loop(UID, QID, Loop):
+def remove_track(QID, SID, SIDX, UID) -> Tuple[bool, str]:
     if UID is None:
         return (False, "Not login.")
     if not check_exist(QID):
-        return (False, "Invalid queue id.")
-    if Loop is None:
-        return (False, "Loop value not given.")
+        return (False, "Value queue id invalid.")
+    if SID is None:
+        return (False, "Value song id invalid.")
+    if SIDX is None:
+        return (False, "Value song idx invalid.")
+    if not can_edit(QID, UID):
+        return (False, "No permission.")
+    if not line_match(QID, SID, SIDX):
+        return (False, "Idx not matched.")
+    else:
+        if delete_song(QID, SIDX):
+            return (True, "Success")
+        else:
+            return (False, "Unknown error")
+
+def set_loop(UID, QID, Loop) -> Tuple[bool, str]:
+    if UID is None:
+        return (False, "Not login.")
+    if not check_exist(QID):
+        return (False, "Value queue id invalid.")
+    if Loop not in [0, 1, 2]:
+        return (False, "Value loop invalid.")
     if not can_edit(QID, UID):
         return (False, "No permission.")
     
@@ -136,7 +139,7 @@ def set_loop(UID, QID, Loop):
     if success == True:
         return (True, "Success")
     else:
-        return (False, "500")
+        return (False, "Unknown error")
     
 if __name__ == "__main__":
     QID = fetch_queue_ID("715835031439933470")

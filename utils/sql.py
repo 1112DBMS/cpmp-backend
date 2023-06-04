@@ -29,7 +29,7 @@ class sql_client:
         self._conn.close()
         return
 
-    def execute(self, cmd: str, var: Tuple[Any, ...], write: bool):
+    def execute(self, cmd: str, var: Tuple[Any, ...], write: bool) -> List[Tuple[Any, ...]] | bool:
         error: bool = False
         try:
             self._cursor.execute(cmd, var)
@@ -49,9 +49,9 @@ class sql_client:
         else:
             return result
     
-    def execute_multi(self, cmds:List[str], vars: List[Tuple[Any, ...]], write: bool):
+    def execute_multi(self, cmds:List[str], vars: List[Tuple[Any, ...]], write: bool) -> List[List[Tuple[Any, ...]]] | bool:
         error: bool = False
-        results: List[Any] = []
+        results: List[Tuple[Any, ...]] = []
         try:
             for cmd, var in zip(cmds, vars):
                 self._cursor.execute(cmd, var)
@@ -71,7 +71,7 @@ class sql_client:
         else:
             return results
 
-def add_new_user(ID, Name, email, photoID, AccessToken, RefreshToken):
+def add_new_user(ID, Name, email, photoID, AccessToken, RefreshToken) -> bool:
     cmd: str = 'INSERT INTO User (UserID, UserName, Email, Photo, AccessToken, RefreshToken) VALUES (%s,%s,%s,%s,%s,%s)'
     var: Tuple[Any, ...] = (ID, Name, email, photoID, AccessToken, RefreshToken)
     write: bool = True
@@ -82,7 +82,7 @@ def add_new_user(ID, Name, email, photoID, AccessToken, RefreshToken):
 
     return result
 
-def add_new_session(session):
+def add_new_session(session) -> bool:
     cmd: str = 'INSERT INTO Session (SessionID, UserID) VALUES (%s,%s)'
     var: Tuple[Any, ...] = (session, None)
     write: bool = True
@@ -93,7 +93,7 @@ def add_new_session(session):
 
     return result
 
-def add_new_song(SongID, URL, Platform, Title, UploaderID, ThumbnailID, Likecount, Length, Download):
+def add_new_song(SongID, URL, Platform, Title, UploaderID, ThumbnailID, Likecount, Length, Download) -> bool:
     cmd: str = 'INSERT INTO Song (SongID, OrigURL, Platform, Title, Uploader, SThumbnail, LikeCount, Length, Download) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)'
     var: Tuple[Any, ...] = (SongID, URL, Platform, Title, UploaderID, ThumbnailID, Likecount, Length, Download)
     write: bool = True
@@ -104,7 +104,7 @@ def add_new_song(SongID, URL, Platform, Title, UploaderID, ThumbnailID, Likecoun
 
     return result
 
-def add_new_picture(UUID, Time, sizeX, sizeY):
+def add_new_picture(UUID, Time, sizeX, sizeY) -> bool:
     cmd: str = 'INSERT INTO Picture (PicID, Time, SizeX, SizeY) VALUES (%s,%s,%s,%s)'
     var: Tuple[Any, ...] = (UUID, Time, sizeX, sizeY)
     write: bool = True
@@ -115,7 +115,7 @@ def add_new_picture(UUID, Time, sizeX, sizeY):
 
     return result
 
-def add_new_uploader(ID, URL, OrigID, Name, Platform, Photo, Description):
+def add_new_uploader(ID, URL, OrigID, Name, Platform, Photo, Description) -> bool:
     cmd: str = 'INSERT INTO Uploader (UploaderID, URL, OrigID, Name, UPlatform, Description, UPhoto) VALUES (%s,%s,%s,%s,%s,%s,%s)'
     var: Tuple[Any, ...] = (ID, URL, OrigID, Name, Platform, Description, Photo)
     write: bool = True
@@ -126,7 +126,7 @@ def add_new_uploader(ID, URL, OrigID, Name, Platform, Photo, Description):
 
     return result
 
-def add_new_queue(QID, Name, Loop, Lock):
+def add_new_queue(QID, Name, Loop, Lock) -> bool:
     cmd: str = 'INSERT INTO Queue (QueueID, Name, LoopStat, Locked) VALUES (%s,%s,%s,%s)'
     var: Tuple[Any, ...] = (QID, Name, Loop, Lock)
     write: bool = True
@@ -137,18 +137,7 @@ def add_new_queue(QID, Name, Loop, Lock):
 
     return result
 
-def add_song_to_queue(QID, idx, SID, Time):
-    cmd: str = 'INSERT INTO QIndex (`QID`, `Index`, `QSongID`, `Time`) VALUES (%s,%s,%s,%s)'
-    var: Tuple[Any, ...] = (QID, idx, SID, Time)
-    write: bool = True
-
-    client = sql_client()
-    result = client.execute(cmd, var, write)
-    client.close()
-
-    return result
-
-def add_user_role_in_queue(QID, UID, Role):
+def add_user_role_in_queue(QID, UID, Role) -> bool:
     cmd: str = 'INSERT INTO Role (QID, UID, Role) VALUES (%s,%s,%s)'
     var: Tuple[Any, ...] = (QID, UID, Role)
     write: bool = True
@@ -159,7 +148,7 @@ def add_user_role_in_queue(QID, UID, Role):
 
     return result
 
-def add_new_history(UID, SID, Time):
+def add_new_history(UID, SID, Time) -> bool:
     cmd: str = 'INSERT INTO History (HUser, HSong, Timestamp) VALUES (%s,%s,%s)'
     var: Tuple[Any, ...] = (UID, SID, Time)
     write: bool = True
@@ -402,7 +391,7 @@ def get_qid_by_uid(ID):
     else:
         return result[0][0]
 
-def get_queue_rows(QID):
+def get_queue_rows(QID) -> Tuple[List[str], List["datetime"]]:
     cmd: str = 'SELECT * FROM QIndex WHERE QID = %s order by `Index`'
     var: Tuple[Any, ...] = (QID,)
     write: bool = False
@@ -413,7 +402,7 @@ def get_queue_rows(QID):
   
     return ([result[2] for result in results], [result[3] for result in results])
 
-def get_queue_len(QID):
+def get_queue_len(QID) -> int:
     cmd: str = 'SELECT COUNT(*) FROM QIndex WHERE QID = %s'
     var: Tuple[Any, ...] = (QID,)
     write: bool = False
@@ -424,7 +413,7 @@ def get_queue_len(QID):
 
     return result[0][0]
 
-def get_queue_info(QID):
+def get_queue_info(QID) -> Dict[str, Any]:
     cmd: str = 'SELECT * FROM Queue WHERE QueueID = %s'
     var: Tuple[Any, ...] = (QID,)
     write: bool = False
@@ -465,7 +454,7 @@ def get_user_topk(UID, k):
     client.close()
     
     if len(result) == 0:
-        return ([], 0)
+        return ([], [])
     else:
         return tuple(map(list, zip(*result)))[:2]
 
@@ -493,7 +482,7 @@ def get_song_playcount(SID):
     client.close()
     return result[0][0]
 
-def update_session_user(session, user):
+def update_session_user(session, user) -> bool:
     cmd: str = 'UPDATE Session SET UserID = %s WHERE SessionID = %s'
     var: Tuple[Any, ...] = (user, session)
     write: bool = True
@@ -503,7 +492,7 @@ def update_session_user(session, user):
     client.close()
     return result
 
-def update_song_download(SongID, download):
+def update_song_download(SongID, download) -> bool:
     cmd: str = 'UPDATE Song SET Download = %s WHERE SongID = %s'
     var: Tuple[Any, ...] = (download, SongID)
     write: bool = True
@@ -513,7 +502,7 @@ def update_song_download(SongID, download):
     client.close()
     return result
 
-def update_user_photo(UserID, PicID):
+def update_user_photo(UserID, PicID) -> bool:
     cmd: str = 'UPDATE User SET Photo = %s WHERE UserID = %s'
     var: Tuple[Any, ...] = (PicID, UserID)
     write: bool = True
@@ -523,7 +512,7 @@ def update_user_photo(UserID, PicID):
     client.close()
     return result
 
-def update_user_email(UserID, email):
+def update_user_email(UserID, email) -> bool:
     cmd: str = 'UPDATE User SET Email = %s WHERE UserID = %s'
     var: Tuple[Any, ...] = (email, UserID)
     write: bool = True
@@ -533,7 +522,7 @@ def update_user_email(UserID, email):
     client.close()
     return result
 
-def update_uploader_description(UploaderID, Description):
+def update_uploader_description(UploaderID, Description) -> bool:
     cmd: str = 'UPDATE Uploader SET Description = %s WHERE UploaderID = %s'
     var: Tuple[Any, ...] = (Description, UploaderID)
     write: bool = True
@@ -543,7 +532,7 @@ def update_uploader_description(UploaderID, Description):
     client.close()
     return result
 
-def update_user_tokens(UserID, AccTok, RefTok):
+def update_user_tokens(UserID, AccTok, RefTok) -> bool:
     cmd: str = 'UPDATE User SET AccessToken = %s, RefreshToken = %s WHERE UserID = %s'
     var: Tuple[Any, ...] = (AccTok, RefTok, UserID)
     write: bool = True
@@ -553,14 +542,16 @@ def update_user_tokens(UserID, AccTok, RefTok):
     client.close()
     return result
 
-def update_queue_song_index_down(QID, start, end):
+def add_song_to_queue(QID, start, end, SID, Time) -> bool:
     cmds: List[str] = [
         'UPDATE QIndex SET `Index` = `Index` - POW(2, 31) WHERE QID = %s AND `Index` >= %s AND `Index` < %s',
-        'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) + 1 WHERE QID = %s AND `Index` < 0'
+        'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) + 1 WHERE QID = %s AND `Index` < 0',
+        'INSERT INTO QIndex (`QID`, `Index`, `QSongID`, `Time`) VALUES (%s,%s,%s,%s)'
     ]
     vars: List[Tuple[Any, ...]] = [
         (QID, start, end),
-        (QID,)
+        (QID,),
+        (QID, start, SID, Time)
     ]
     write: bool = True
 
@@ -569,13 +560,15 @@ def update_queue_song_index_down(QID, start, end):
     client.close()
     return result
 
-def update_queue_song_index_up(QID, start, end):
+def delete_song_from_queue(QID, start, end) -> bool:
     cmds: List[str] = [
+        'DELETE FROM QIndex WHERE `QID` = %s AND `Index` = %s',
         'UPDATE QIndex SET `Index` = `Index` - POW(2, 31) WHERE QID = %s AND `Index` >= %s AND `Index` < %s',
         'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) - 1 WHERE QID = %s AND `Index` < 0'
     ]
     vars: List[Tuple[Any, ...]] = [
-        (QID, start, end),
+        (QID, start),
+        (QID, start+1, end),
         (QID,)
     ]
     write: bool = True
@@ -585,7 +578,7 @@ def update_queue_song_index_up(QID, start, end):
     client.close()
     return result
 
-def update_queue_owner(QID, UID):
+def update_queue_owner(QID, UID) -> bool:
     cmd: str = 'UPDATE User SET QID = %s WHERE UserID = %s'
     var: Tuple[Any, ...] = (QID, UID)
     write: bool = True
@@ -595,7 +588,7 @@ def update_queue_owner(QID, UID):
     client.close()
     return result
 
-def update_queue_guild(QID, GID):
+def update_queue_guild(QID, GID) -> bool:
     cmd: str = 'UPDATE Guild SET QID = %s WHERE GuildID = %s'
     var: Tuple[Any, ...] = (QID, GID)
     write: bool = True
@@ -605,7 +598,7 @@ def update_queue_guild(QID, GID):
     client.close()
     return result
 
-def update_user_role_in_queue(QID, UID, Role):
+def update_user_role_in_queue(QID, UID, Role) -> bool:
     cmd: str = 'UPDATE Role SET Role = %s WHERE QID = %s AND UID = %s'
     var: Tuple[Any, ...] = (Role, QID, UID)
     write: bool = True
@@ -615,7 +608,7 @@ def update_user_role_in_queue(QID, UID, Role):
     client.close()
     return result
 
-def update_queue_loop(QID: str, Loop: int):
+def update_queue_loop(QID: str, Loop: int) -> bool:
     cmd: str = 'UPDATE Queue SET LoopStat = %s WHERE QueueID = %s'
     var: Tuple[Any, ...] = (Loop, QID)
     write: bool = True
@@ -625,19 +618,9 @@ def update_queue_loop(QID: str, Loop: int):
     client.close()
     return result
 
-def delete_picture(PicID):
+def delete_picture(PicID) -> bool:
     cmd = 'DELETE FROM Picture WHERE PicID = %s'
     var: Tuple[Any, ...] = (PicID,)
-    write: bool = True
-
-    client = sql_client()
-    result = client.execute(cmd, var, write)
-    client.close()
-    return result
-
-def delete_song_from_queue(QID, idx):
-    cmd = 'DELETE FROM QIndex WHERE `QID` = %s AND `Index` = %s'
-    var: Tuple[Any, ...] = (QID, idx)
     write: bool = True
 
     client = sql_client()
