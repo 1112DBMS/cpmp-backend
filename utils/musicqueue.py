@@ -13,6 +13,9 @@ def check_exist(QID) -> bool:
 def get_queue_id_by_user(UID) -> str:
     return sql.get_qid_by_uid(UID)
 
+def get_queue_row(QID, IDX) -> Tuple[str, "datetime"]:
+    return sql.get_queue_row(QID, IDX)
+
 def get_queue_rows(QID) -> Tuple[List[str], List["datetime"]]:
     return sql.get_queue_rows(QID)
 
@@ -25,10 +28,8 @@ def add_queue(QID, Name) -> bool:
 def get_queue(QID) -> Dict[str, Any]:
     return sql.get_queue_info(QID)
 
-def push_song(QID, SongID, idx = None) -> bool:
+def push_song(QID, SongID, idx) -> bool:
     qlen = get_queue_len(QID)
-    if idx is None:
-        idx = qlen
     Time = datetime.now()
 
     return sql.add_song_to_queue(QID, idx, qlen, SongID, Time)
@@ -36,6 +37,17 @@ def push_song(QID, SongID, idx = None) -> bool:
 def delete_song(QID, idx) -> bool:
     qlen = get_queue_len(QID)
     return sql.delete_song_from_queue(QID, idx, qlen)
+
+def loop_queue(QID) -> bool:
+    SID, _ = get_queue_row(QID, 0)
+    qlen = get_queue_len(QID)
+    Time = datetime.now()
+
+    return sql.rotate_queue_loop_all(QID, SID, qlen, Time)
+
+def loop_one(QID) -> bool:
+    Time = datetime.now()
+    return sql.rotate_queue_loop_one(QID, Time)
 
 def bind_queue_to_user(QID, UID) -> bool:
     return sql.update_queue_owner(QID, UID)
@@ -46,7 +58,7 @@ def bind_queue_to_guild(QID, GID) -> bool:
 def get_role(QID, UID) -> str:
     return sql.get_user_role_in_queue(QID, UID)
 
-def set_role(QID, UID, Role):
+def set_role(QID, UID, Role) -> bool:
     result = None
     
     if get_role(QID, UID) is not None:
@@ -68,21 +80,21 @@ def uuid() -> str:
 
 ##############################
 
-def gen_queue_for_user(UID):
+def gen_queue_for_user(UID) -> str:
     QID = uuid()
     add_queue(QID, "New Queue")
     set_owner(QID, UID)
     return QID
 
-def set_owner(QID, UID):
+def set_owner(QID, UID) -> bool:
     res1 = bind_queue_to_user(QID, UID)
     res2 = set_role(QID, UID, "Owner")
     return (res1 and res2)
 
-def set_editor(QID, UID):
+def set_editor(QID, UID) -> bool:
     return set_role(QID, UID, "Editor")
 
-def set_viewer(QID, UID):
+def set_viewer(QID, UID) -> bool:
     return set_role(QID, UID, "Viewer")
 
 def fetch_queue_ID(UID) -> str:
@@ -92,22 +104,81 @@ def fetch_queue_ID(UID) -> str:
         QID = gen_queue_for_user(UID)
     return QID
 
-def can_edit(QID, UID):
+def can_edit(QID, UID) -> bool:
     permission = ["Owner", "Editor"]
     if get_role(QID, UID) in permission:
         return True
     else:
         return False
 
-def get_queue_tracks(QID):
-    queue_rows, time_rows = get_queue_rows(QID)
-    tracks = music.gen_track_list(UUIDs = queue_rows)
+def can_view(QID, UID) -> bool:
+    permission = ["Owner", "Editor", "Viewer"]
+    if get_role(QID, UID) in permission:
+        return True
+    else:
+        return False
 
-    return [{**x, "time":y.isoformat()}for x, y in zip(tracks, time_rows)]
+##############################
 
-def remove_track(QID, SID, SIDX, UID) -> Tuple[bool, str]:
+
+
+##############################
+
+def s_get_queue(QID, UID) -> Tuple[bool, str | List[Dict[str, Any]]]:
     if UID is None:
         return (False, "Not login.")
+    if QID is None:
+        QID = fetch_queue_ID(UID)
+    if not check_exist(QID):
+        return (False, "Value queue id invalid.")
+    if not can_view(QID, UID):
+        return (False, "No permission.")
+    
+    queue_rows, time_rows = get_queue_rows(QID)
+
+    try:
+        tracks = music.gen_track_list(UUIDs = queue_rows)
+        data = {
+            "list": [{**x, "time":y.isoformat()}for x, y in zip(tracks, time_rows)],
+            "total": len(tracks),
+            "loop": get_queue(QID)["Loop"]
+        }
+        return (True, data)
+    except Exception as e:
+        print(e)
+        return (False, str(e))
+
+def s_post_queue(QID, SID, IDX, UID) -> Tuple[bool, str]:
+    if UID is None:
+        return (False, "Not login.")
+    if SID is None or not music.check_exist(SID):
+        return (False, "Value song id invalid.")
+    if QID is None:
+        QID = fetch_queue_ID(UID)
+    if not check_exist(QID):
+        return (False, "Value queue id invalid.")
+    if not can_edit(QID, UID):
+        return (False, "No permission.")
+    
+    qlen = get_queue_len(QID)
+    if IDX is None:
+        IDX = qlen
+    
+    if not isinstance(IDX, int) or IDX < 0 or IDX > qlen:
+        return (False, "Value song idx invalid.")
+
+    success = push_song(QID, SID, IDX)
+
+    if success:
+        return (True, "Success")
+    else:
+        return (False, "Unknown error")
+
+def s_delete_queue(QID, SID, SIDX, UID) -> Tuple[bool, str]:
+    if UID is None:
+        return (False, "Not login.")
+    if QID is None:
+        QID = fetch_queue_ID(UID)
     if not check_exist(QID):
         return (False, "Value queue id invalid.")
     if SID is None:
@@ -118,15 +189,19 @@ def remove_track(QID, SID, SIDX, UID) -> Tuple[bool, str]:
         return (False, "No permission.")
     if not line_match(QID, SID, SIDX):
         return (False, "Idx not matched.")
-    else:
-        if delete_song(QID, SIDX):
-            return (True, "Success")
-        else:
-            return (False, "Unknown error")
+    
+    success = delete_song(QID, SIDX)
 
-def set_loop(UID, QID, Loop) -> Tuple[bool, str]:
+    if success:
+        return (True, "Success")
+    else:
+        return (False, "Unknown error")
+
+def s_set_loop(QID, UID, Loop) -> Tuple[bool, str]:
     if UID is None:
         return (False, "Not login.")
+    if QID is None:
+        QID = fetch_queue_ID(UID)
     if not check_exist(QID):
         return (False, "Value queue id invalid.")
     if Loop not in [0, 1, 2]:
@@ -140,17 +215,30 @@ def set_loop(UID, QID, Loop) -> Tuple[bool, str]:
         return (True, "Success")
     else:
         return (False, "Unknown error")
-    
-if __name__ == "__main__":
-    QID = fetch_queue_ID("715835031439933470")
-    print(QID)
-    #print(can_edit(QID, "391837295612919818"))
-    #set_editor(QID, "391837295612919818")
-    #print(can_edit(QID, "391837295612919818"))
-    #set_viewer(QID, "391837295612919818")
-    #print(can_edit(QID, "391837295612919818"))
-    #push_song(QID, "09fcc836-d84e-3ef9-a935-e156b17a98ad")
-    #push_song(QID, "041f0b82-f54f-342a-ad72-9984ebd41d68", 1)
-    delete_song(QID, 2)
-    #print(get_queue_tracks("d43750bd-d30d-4e90-bffe-adedd03a70a2"))
 
+def s_queue_next(QID, UID) -> Tuple[bool, str]:
+    if UID is None:
+        return (False, "Not login.")
+    if QID is None:
+        QID = fetch_queue_ID(UID)
+    if not check_exist(QID):
+        return (False, "Value queue id invalid.")
+    if not can_edit(QID, UID):
+        return (False, "No permission.")
+    try:
+        Queue = get_queue(QID)
+        success = False
+        if Queue["Loop"] == 0:
+            success = delete_song(QID, 0)
+        elif Queue["Loop"] == 1:
+            success = loop_queue(QID)
+        elif Queue["Loop"] == 2:
+            success = loop_one(QID)
+            
+        if success:
+            return (True, "Success")
+        else:
+            raise RuntimeError("Error when rotating song.")
+    except Exception as e:
+        return (False, str(e))
+    

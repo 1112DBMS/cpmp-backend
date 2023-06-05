@@ -1,12 +1,11 @@
 from typing import List, Set, Dict, Tuple
-from typing import Union, Optional
+from typing import Union, Optional, Any
 
-import os
 import flask
 from flask import make_response as mkres
 import requests
-import urllib.parse
 import json
+from loguru import logger
 
 from utils.constant import *
 from utils.middleware import middleware
@@ -130,141 +129,83 @@ def search():
 
 @app.route("/api/download", methods=['POST'])
 def download():
-    res = None
+    if not flask.request.is_json:
+        return res400()
+    
+    data = flask.request.get_json()
 
-    if flask.request.is_json:
-        data = flask.request.get_json()
+    SongID = data.get('id', None)
 
-        SongID = data.get('id', None)
+    stat, info = music.s_download(SongID)
 
-        if SongID is not None:
-
-            if music.download(SongID) == True:
-                res = MyResponse("Success")
-            
-            else:
-                res = MyResponse("Given song id is invalid.", error=True)
-
-        else:
-            res = MyResponse("No song id is given.", error=True)
-
-    else:
-        res = MyResponse("Wrong usage.", error=True)
-
-    return res.json()
+    return Mymkres(stat, info)
 
 @app.route("/api/track", methods=['POST'])
 def get_track():
-    res = None
+    UserID = flask.request.environ['user']
 
-    if flask.request.is_json:
-        data = flask.request.get_json()
-
-        SongID = data.get('id', None)
-        URL = data.get('url', None)
-
-        if SongID is not None or URL is not None:
-            try:
-                res = MyResponse(music.gen_track(url = URL, UUID = SongID, UserID = None))
-            except Exception as e:
-                res = MyResponse("Invalid UUID or url is given.", error=True)
-                print(e)
-        else:
-            res = MyResponse("No id nor url is given.", error=True)
-
-    else:
+    if not flask.request.is_json:
         return res400()
+    
+    data = flask.request.get_json()
 
-    return res.json()
+    SongID = data.get('id', None)
+    URL = data.get('url', None)
+    
+    stat, info = music.s_get_track(URL, SongID, UserID)
+
+    return Mymkres(stat, info)
 
 @app.route("/api/play", methods=['GET'])
-def play_redirect():
+def record_and_redirect():
     UserID = flask.request.environ['user']
 
     SongID = flask.request.args.get('id', None)
     
-    if history.add_record(UserID, SongID):
+    stat, info = history.s_record_and_redirect(UserID, SongID)
+
+    if stat == True:
         return flask.redirect(f"/songs/{SongID}", code=303)
     else:
-        return res400()
+        return Mymkres(stat, info)
 
 @app.route("/api/top", methods=['GET'])
 def get_topplay():
     UserID = flask.request.environ['user']
 
-    Self = True if flask.request.args.get('self') == "1" else False
-    k = flask.request.args.get('k', 10)
+    Self = flask.request.args.get('self', None)
+    k = flask.request.args.get('k', None)
     
-    try:
-        k = int(k)
-        if k > 10 or k <= 0:
-            raise ValueError("Wrong data range")
-        
-    except ValueError:
-        return res400()
+    stat, info = history.s_get_topplay(UserID, k, Self)
 
-    if UserID is None and Self == True:
-        return MyResponse({"list":None,"total":0}).json()
-    if Self == True:
-        return MyResponse(history.top_tracks(k, UID=UserID)).json()
-    else:
-        return MyResponse(history.top_tracks(k)).json()
+    return Mymkres(stat, info)
 
 @app.route("/api/queue", methods=['GET'])
 def get_queue():
     UserID = flask.request.environ['user']
+    QID = flask.request.args.get('id', None)
 
-    if UserID is None:
-        return mkres(MyResponse("You must login first.", error=True).json(), 401)
-    
-    QID = flask.request.args.get('id', musicqueue.fetch_queue_ID(UserID))
+    stat, info = musicqueue.s_get_queue(QID, UserID)
 
-    if not musicqueue.check_exist(QID):
-        return MyResponse("Invalid queue id.", error=True).json()
-
-    tracks = musicqueue.get_queue_tracks(QID)
-    
-    data = {
-        "list": tracks,
-        "total": len(tracks),
-        "loop": musicqueue.get_queue(QID)["Loop"]
-    }
-
-    return MyResponse(data).json()
+    return Mymkres(stat, info)
 
 @app.route("/api/queue", methods=['POST'])
 def post_queue():
     
     UserID = flask.request.environ['user']
 
-    if UserID is None:
-        return mkres(MyResponse("You must login first.", error=True).json(), 401)
-
     if not flask.request.is_json:
         return res400()
 
     data = flask.request.get_json()
 
-    TrackID = data.get('id', None)
-    
-    if TrackID is None or not music.check_exist(TrackID):
-        return MyResponse("Invalid track id.", error=True).json()
-    
-    QID = data.get('queue', musicqueue.fetch_queue_ID(UserID))
+    SongID = data.get('id', None)
+    QID = data.get('queue', None)
+    SongIDX = data.get('idx', None)
 
-    if not musicqueue.check_exist(QID):
-        return MyResponse("Invalid queue id.", error=True).json()
+    stat, info = musicqueue.s_post_queue(QID, SongID, SongIDX, UserID)
 
-    if not musicqueue.can_edit(QID, UserID):
-        return res403()
-    
-    try:
-        musicqueue.push_song(QID, TrackID)
-    except Exception as e:
-        print(e)
-        return res500()
-
-    return res200()
+    return Mymkres(stat, info)
 
 @app.route("/api/queue", methods=['DELETE'])
 def delete_queue():
@@ -277,51 +218,42 @@ def delete_queue():
 
     TrackID = data.get('id', None)
     SongIDX = data.get('idx', None)
-    QID = data.get('queue', musicqueue.fetch_queue_ID(UserID))
+    QID = data.get('queue', None)
     
-    stat, info = musicqueue.remove_track(QID, TrackID, SongIDX, UserID)
+    stat, info = musicqueue.s_delete_queue(QID, TrackID, SongIDX, UserID)
 
-    if stat == True:
-        return res200()
-    else:
-        if info == "Not login.":
-            return res401()
-        elif info.startswith("Value") and info.endswith("invalid."):
-            return res400(info)
-        elif info == "No permission.":
-            return res403()
-        elif info == "Idx not matched.":
-            return res400(info)
-        else:
-            return res500()
+    return Mymkres(stat, info)
 
 @app.route("/api/queue/loop", methods=['POST'])
 def set_loop():
-    UserID: Optional[str] = flask.request.environ['user']
+    UserID = flask.request.environ['user']
 
     if not flask.request.is_json:
         return res400()
 
-    data: Dict[str, str] = flask.request.get_json()
+    data = flask.request.get_json()
 
-    Loop: str = data.get("loop", None)
-    QID: str = data.get('queue', musicqueue.fetch_queue_ID(UserID))
+    Loop = data.get("loop", None)
+    QID = data.get('queue', None)
 
-    stat, info = musicqueue.set_loop(UserID, QID, Loop)
+    stat, info = musicqueue.s_set_loop(QID, UserID, Loop)
 
-    if stat == True:
-        return res200()
-    else:
-        if info == "Not login.":
-            return res401()
-        elif info == "Value queue id invalid.":
-            return res400(info)
-        elif info == "Value loop invalid.":
-            return res400(info)
-        elif info == "No permission.":
-            return res403()
-        else:
-            return res500()
+    return Mymkres(stat, info)
+
+@app.route("/api/queue/next", methods=['POST'])
+def queue_next():
+    UserID = flask.request.environ['user']
+
+    if not flask.request.is_json:
+        return res400()
+
+    data = flask.request.get_json()
+
+    QID = data.get('queue', None)
+
+    stat, info = musicqueue.s_queue_next(QID, UserID)
+
+    return Mymkres(stat, info)
 
 
 #########################################
@@ -329,6 +261,26 @@ def set_loop():
 #               Responds                #
 #                                       #
 #########################################
+
+def Mymkres(stat: bool, info: Any):
+    if stat == True:
+        return res200(info)
+    else:
+        if info == "400":
+            return res400()
+        elif info == "501":
+            return res501()
+        elif info == "Not login.":
+            return res401()
+        elif info.startswith("Value") and info.endswith("invalid."):
+            return res400(info)
+        elif info.endswith("not matched."):
+            return res400(info)
+        elif info == "No permission.":
+            return res403()
+        else:
+            logger.error(info)
+            return res500()
 
 @app.route("/api/200", methods=['GET'])
 def res200(text: str = "Success", error: bool = False):
@@ -349,3 +301,7 @@ def res403(text: str = "403 Forbidden."):
 @app.route("/api/500", methods=['GET'])
 def res500(text: str = "500 Internal Server Error."):
     return mkres(MyResponse(text, error=True).json(), 500)
+
+@app.route("/api/501", methods=['GET'])
+def res501(text: str = "501 Not Implemented."):
+    return mkres(MyResponse(text, error=True).json(), 501)

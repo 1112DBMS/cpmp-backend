@@ -87,7 +87,7 @@ def download_photo(UserID, ava_hash, discriminator):
         remainder = int(discriminator) % 5
         Photo_url = f"https://cdn.discordapp.com/embed/avatars/{remainder}.png"
     else:
-        Photo_url = f"https://cdn.discordapp.com/avatars/{UserID}/{ava_hash}"
+        Photo_url = f"https://cdn.discordapp.com/avatars/{UserID}/{ava_hash}?size=256"
     
     PicID = picture.uuid(Photo_url)
     if not picture.check_exist(PicID):

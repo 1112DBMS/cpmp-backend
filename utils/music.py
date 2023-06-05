@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import List, Set, Dict, Tuple
+from typing import Union, Optional, Any
 from multiprocessing import Process, Manager
 import math
 from time import sleep
@@ -144,26 +147,52 @@ def search(query, offset, size):
         error = True
     return (d, error)
 
-def download(UUID):
-    if not check_exist(UUID):
-        return False
-    Song = get_song(UUID)
+def s_get_track(url, SID, UID) -> Tuple[bool, str | Dict[str, Any]]:
+    if SID is None and url is None:
+        return (False, "400")
+    try:
+        info = gen_track(url = url, UUID = SID, UserID = UID)
+        return (True, info)
+    except Exception as e:
+        print(e)
+        return (False, "Value song id or url invalid.")
     
-    if Song["Length"] >= DOWNLOAD_LENGTH_LIMIT:
-        return False
+def s_download(SID) -> Tuple[bool, str]:
+    if SID is None:
+        return (False, "400")
 
-    if Song["Platform"] == "youtube":
-        if Song["Download"] == 0:
-            set_download(UUID, 1)
-            try:
-                YT.download_song(Song["OrigURL"])
-                set_download(UUID, 2)
-            except:
-                set_download(UUID, 0)
-        elif Song["Download"] == 1:
-            while Song["Download"] == 1:
-                sleep(1)
-                Song = get_song(UUID)
-                print(f'Download state for {UUID} is {Song["Download"]}')
+    if not check_exist(SID):
+        return (False, "Value song id invalid.")
+    
+    try:
+        Song = get_song(SID)
+        
+        if Song["Length"] >= DOWNLOAD_LENGTH_LIMIT:
+            return (False, "No permission.")
+        
+        if Song["Platform"] == "youtube":
 
-    return True
+            if Song["Download"] == 0:
+                set_download(SID, 1)
+                try:
+                    YT.download_song(Song["OrigURL"])
+                    set_download(SID, 2)
+                except Exception as e:
+                    set_download(SID, 0)
+                    raise e
+                
+            elif Song["Download"] == 1:
+                while Song["Download"] == 1:
+                    sleep(1)
+                    Song = get_song(SID)
+
+            return (True, "Success")
+        
+        elif Song["Platform"] == "spotify":
+            return (False, "501")
+        else:
+            return (False, "Unknown Platform")
+        
+    except Exception as e:
+        print(e)
+        return (False, str(e))

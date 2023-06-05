@@ -391,6 +391,17 @@ def get_qid_by_uid(ID):
     else:
         return result[0][0]
 
+def get_queue_row(QID, idx) -> Tuple[str, "datetime"]:
+    cmd: str = 'SELECT * FROM QIndex WHERE QID = %s AND `Index` = %s'
+    var: Tuple[Any, ...] = (QID, idx)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    return (result[0][2], result[0][3])
+
 def get_queue_rows(QID) -> Tuple[List[str], List["datetime"]]:
     cmd: str = 'SELECT * FROM QIndex WHERE QID = %s order by `Index`'
     var: Tuple[Any, ...] = (QID,)
@@ -611,6 +622,34 @@ def update_user_role_in_queue(QID, UID, Role) -> bool:
 def update_queue_loop(QID: str, Loop: int) -> bool:
     cmd: str = 'UPDATE Queue SET LoopStat = %s WHERE QueueID = %s'
     var: Tuple[Any, ...] = (Loop, QID)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
+
+def rotate_queue_loop_all(QID, SID, qlen, Time):
+    cmds: List[str] = [
+        'INSERT INTO QIndex (`QID`, `Index`, `QSongID`, `Time`) VALUES (%s,%s,%s,%s)',
+        'DELETE FROM QIndex WHERE `QID` = %s AND `Index` = 0',
+        'UPDATE QIndex SET `Index` = `Index` - 1 WHERE QID = %s'
+    ]
+    vars: List[Tuple[Any, ...]] = [
+        (QID, qlen, SID, Time),
+        (QID,),
+        (QID,)
+    ]
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute_multi(cmds, vars, write)
+    client.close()
+    return result
+
+def rotate_queue_loop_one(QID: str, Time: "datetime") -> bool:
+    cmd: str = 'UPDATE QIndex SET Time = %s WHERE QID = %s AND `Index` = 0'
+    var: Tuple[Any, ...] = (Time, QID)
     write: bool = True
 
     client = sql_client()
