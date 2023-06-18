@@ -12,9 +12,12 @@ from utils.middleware import middleware
 import utils.session as session
 import utils.music as music
 import utils.user as user
-import utils.sql as sql
 import utils.musicqueue as musicqueue
 import utils.history as history
+
+from datetime import datetime, time
+
+logfile = logger.add(f'./log/{datetime.now().strftime("%Y-%m-%d")}.log', rotation=time.min)
 
 app = flask.Flask(__name__)
 
@@ -43,18 +46,14 @@ def logout():
 @app.route("/api/oauth", methods=['GET'])
 def oauth():
     code = flask.request.args.get('code')
-    #state = flask.request.args.get('state')
-    OAUTH_URL_=flask.request.headers.get('referer').split('?')[0]
-    if OAUTH_URL_ == "https://discord.com/":
-        OAUTH_URL_ = OAUTH_URL
-    print(OAUTH_URL_)
+    OAUTH_URL = flask.request.headers.get('referer').split('?')[0]
     
     data = {
         'client_id': CLIENT_ID,
         'client_secret': CLIENT_SECRET,
         'grant_type': 'authorization_code',
         'code': code,
-        'redirect_uri': OAUTH_URL_
+        'redirect_uri': OAUTH_URL
     }
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -254,7 +253,6 @@ def queue_next():
     stat, info = musicqueue.s_queue_next(QID, UserID)
 
     return Mymkres(stat, info)
-
 
 #########################################
 #                                       #

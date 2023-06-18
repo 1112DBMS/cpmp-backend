@@ -4,13 +4,9 @@ from typing import Union, Optional, Any
 
 import mysql.connector
 from loguru import logger
-from datetime import datetime
+from datetime import datetime, time
 
 from utils.constant import SQL_USER, SQL_PASSWORD, SQL_HOST, SQL_PORT, SQL_DB
-
-now = datetime.now()
-date = now.strftime("%Y-%m-%d")
-logfile = logger.add(f'./log/{date}.log')
 
 class sql_client:
 
