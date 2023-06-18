@@ -32,7 +32,7 @@ class track:
         self.Playcount = history.get_playcount(self.SongID)
         
         if UserID is not None:
-            self.like = sql.user_song_like(UserID, SongID)
+            self.Like = sql.user_song_like(UserID, SongID)
         return
     
     def to_dict(self):
@@ -89,7 +89,7 @@ def fetch_song(url = None, UUID = None):
 
 def gen_track(url = None, UUID = None, UserID = None):
     Song = fetch_song(url=url, UUID=UUID)
-    Track = track(Song["SongID"], Song=Song)
+    Track = track(Song["SongID"], Song=Song, UserID=UserID)
     return Track.to_dict()
 
 def gen_track_list(urls = None, UUIDs = None, UserID = None):

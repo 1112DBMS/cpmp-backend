@@ -254,6 +254,30 @@ def queue_next():
 
     return Mymkres(stat, info)
 
+@app.route("/api/like", methods=['GET'])
+def get_like():
+    UserID = flask.request.environ['user']
+
+    stat, info = user.s_get_like(UserID)
+
+    return Mymkres(stat, info)
+
+@app.route("/api/like", methods=['POST'])
+def set_like():
+    UserID = flask.request.environ['user']
+
+    if not flask.request.is_json:
+        return res400()
+
+    data = flask.request.get_json()
+
+    SongID = data.get("id", None)
+    code = data.get("set", None)
+
+    stat, info = user.s_set_like(UserID, SongID, code)
+
+    return Mymkres(stat, info)
+
 #########################################
 #                                       #
 #               Responds                #

@@ -155,6 +155,9 @@ def add_new_history(UID, SID, Time) -> bool:
 
     return result
 
+def add_new_user_like(UID, SID, Time) -> bool:
+    pass
+
 def user_exist(UserID):
     cmd: str = 'SELECT EXISTS (SELECT * FROM User WHERE UserID = %s) AS is_exists'
     var: Tuple[Any, ...] = (UserID,)
@@ -268,7 +271,7 @@ def picture_user_using(PicID):
         return False
     
 def user_song_like(UserID, SongID):
-    cmd: str = 'SELECT EXISTS (SELECT * FROM Like WHERE LUser = %s AND LSong = %s) AS is_exists'
+    cmd: str = 'SELECT EXISTS (SELECT * FROM `Like` WHERE `LUser` = %s AND `LSong` = %s) AS is_exists'
     var: Tuple[Any, ...] = (UserID, SongID)
     write: bool = False
 
@@ -280,7 +283,10 @@ def user_song_like(UserID, SongID):
         return True
     else:
         return False
-    
+
+def get_user_like(UserID) -> List[Tuple[Any, ...]]:
+    pass
+
 def get_user_by_ID(UserID):
     cmd: str = 'SELECT * FROM User WHERE UserID = %s'
     var: Tuple[Any, ...] = (UserID,)
@@ -656,6 +662,47 @@ def rotate_queue_loop_one(QID: str, Time: "datetime") -> bool:
 def delete_picture(PicID) -> bool:
     cmd = 'DELETE FROM Picture WHERE PicID = %s'
     var: Tuple[Any, ...] = (PicID,)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+    return result
+
+def delete_user_like(UID, SID) -> bool:
+    pass
+
+#############################
+#                           #
+#         New Codes         #
+#                           #
+#############################
+
+def get_user_like(UserID) -> List[Tuple[Any, ...]]:
+    cmd: str = 'SELECT `LSong` FROM `Like` WHERE `LUser` = %s ORDER BY `Time` desc'
+    var: Tuple[Any, ...] = (UserID,)
+    write: bool = False
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    return result
+
+def add_new_user_like(UID, SID, Time) -> bool:
+    cmd: str = 'INSERT INTO `Like` (LUser, LSong, Time) VALUES (%s,%s,%s)'
+    var: Tuple[Any, ...] = (UID, SID, Time)
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute(cmd, var, write)
+    client.close()
+
+    return result
+
+def delete_user_like(UID, SID) -> bool:
+    cmd = 'DELETE FROM `Like` WHERE LUser = %s AND LSong = %s'
+    var: Tuple[Any, ...] = (UID, SID)
     write: bool = True
 
     client = sql_client()

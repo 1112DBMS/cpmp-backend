@@ -43,7 +43,7 @@ def s_get_topplay(UID, k, Self) -> Tuple[bool, str | Dict[str, Any]]:
             else:
                 SIDs, counts = ([], [])
 
-        tracks = music.gen_track_list(UUIDs=SIDs)
+        tracks = music.gen_track_list(UUIDs=SIDs, UserID=UID)
     
         d = {
             "list": [{**x, "playCount":y}for x, y in zip(tracks, counts)],

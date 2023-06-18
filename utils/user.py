@@ -1,9 +1,16 @@
+from __future__ import annotations
+from typing import List, Set, Dict, Tuple
+from typing import Union, Optional, Any
+
 import requests
+from datetime import datetime
+from loguru import logger
 
 import utils.picture as picture
 import utils.musicqueue as musicqueue
 from utils.constant import CLIENT_ID, CLIENT_SECRET, TOKEN_URL
 import utils.sql as sql
+import utils.music as music
 
 def check_exist(ID):
     return sql.user_exist(ID)
@@ -19,6 +26,26 @@ def update_email(UserID, email):
 
 def update_tokens(UserID, AccessToken, RefreshToken):
     return sql.update_user_tokens(UserID, AccessToken, RefreshToken)
+
+def get_like(UID):
+    
+    lst = sql.get_user_like(UID)
+
+    SongIDlst = []
+
+    for item in lst:
+        SongIDlst.append(item[0])
+    
+    return SongIDlst
+
+def set_user_like(UID, SID):
+
+    Time = datetime.now()
+    return sql.add_new_user_like(UID, SID, Time)
+
+def unset_user_like(UID, SID):
+
+    return sql.delete_user_like(UID, SID)
 
 def fetch_dc_info(AccessToken = None, RefreshToken = None, UserID = None):
     if UserID is not None:
@@ -146,3 +173,43 @@ def fetch_new_token(UserID, RefreshToken = None):
     update_tokens(UserID, AccessToken, RefreshToken)
 
     return
+
+def s_get_like(UID) -> Tuple[bool, str | Dict[str, List["music.track"] | int]]:
+    
+    if UID is None:
+        return (False, "Not login.")
+    
+    SIDlst = get_like(UID)
+    tracks = music.gen_track_list(UUIDs=SIDlst, UserID=UID)
+
+    d = {
+        "list": tracks,
+        "total": len(tracks)
+    }
+
+    return (True, d)
+
+def s_set_like(UID, SID, code) -> Tuple[bool, str]:
+
+    if UID is None:
+        return (False, "Not login.")
+    
+    if not music.check_exist(SID):
+        return (False, "Value SongID invalid.")
+    
+    if not isinstance(code, bool):
+        return (False, "Value set invalid.")
+
+    stat = True
+
+    if code == True:
+        stat = set_user_like(UID, SID)
+    else:
+        stat = unset_user_like(UID, SID)
+
+    if stat == True:
+        return (True, "Success")
+    else:
+        logger.error("Error when set user like. User = {UID}, SID = {SID}, set = {code}")
+        return (True, "Success")
+    
