@@ -96,38 +96,27 @@ def profile():
 
 @app.route("/api/search", methods=['POST'])
 def search():
-    
+    UserID = flask.request.environ['user']
+
     res = None
 
-    if flask.request.is_json:
-        data = flask.request.get_json()
-        query_str = data.get('keyword', None)
-        offset = data.get('offset', 0)
-        length = data.get('len', 10)
-
-        try:
-            offset = int(offset)
-            length = int(length)
-            
-            if offset > 90 or length > 30 or offset < 0 or length <= 0:
-                raise ValueError("Wrong data range")
-
-            if query_str is None:
-                res = MyResponse("No keyword specified.", error=True)
-        
-            else:
-                d, error = music.search(query_str, offset, length)
-                res = MyResponse(d, error=error)
-        except ValueError:
-            res = MyResponse("Wrong data range", error=True)
-        
-    else:
+    if not flask.request.is_json:
         return res400()
+    
+    data = flask.request.get_json()
 
-    return res.json()
+    query_str = data.get('keyword', None)
+    offset = data.get('offset', 0)
+    length = data.get('len', 10)
+    plat = data.get('platform', "youtube")
+
+    stat, info = music.search(query_str, offset, length, plat, UserID)
+
+    return Mymkres(stat, info)
 
 @app.route("/api/download", methods=['POST'])
 def download():
+
     if not flask.request.is_json:
         return res400()
     
@@ -141,6 +130,7 @@ def download():
 
 @app.route("/api/track", methods=['POST'])
 def get_track():
+
     UserID = flask.request.environ['user']
 
     if not flask.request.is_json:
@@ -157,6 +147,7 @@ def get_track():
 
 @app.route("/api/play", methods=['GET'])
 def record_and_redirect():
+
     UserID = flask.request.environ['user']
 
     SongID = flask.request.args.get('id', None)
@@ -170,17 +161,20 @@ def record_and_redirect():
 
 @app.route("/api/top", methods=['GET'])
 def get_topplay():
+
     UserID = flask.request.environ['user']
 
     Self = flask.request.args.get('self', None)
     k = flask.request.args.get('k', None)
+    Time = flask.request.args.get('time', None)
     
-    stat, info = history.s_get_topplay(UserID, k, Self)
+    stat, info = history.s_get_topplay(UserID, k, Self, Time)
 
     return Mymkres(stat, info)
 
 @app.route("/api/queue", methods=['GET'])
 def get_queue():
+
     UserID = flask.request.environ['user']
     QID = flask.request.args.get('id', None)
 
@@ -208,6 +202,7 @@ def post_queue():
 
 @app.route("/api/queue", methods=['DELETE'])
 def delete_queue():
+
     UserID = flask.request.environ['user']
 
     if not flask.request.is_json:
@@ -225,6 +220,7 @@ def delete_queue():
 
 @app.route("/api/queue/loop", methods=['POST'])
 def set_loop():
+
     UserID = flask.request.environ['user']
 
     if not flask.request.is_json:
@@ -241,6 +237,7 @@ def set_loop():
 
 @app.route("/api/queue/next", methods=['POST'])
 def queue_next():
+
     UserID = flask.request.environ['user']
 
     if not flask.request.is_json:
@@ -251,6 +248,22 @@ def queue_next():
     QID = data.get('queue', None)
 
     stat, info = musicqueue.s_queue_next(QID, UserID)
+
+    return Mymkres(stat, info)
+
+@app.route("/api/queue/shuffle", methods=['POST'])
+def queue_shuffle():
+
+    UserID = flask.request.environ['user']
+
+    if not flask.request.is_json:
+        return res400()
+
+    data = flask.request.get_json()
+
+    QID = data.get('queue', None)
+
+    stat, info = musicqueue.s_queue_shuffle(QID, UserID)
 
     return Mymkres(stat, info)
 
@@ -300,6 +313,8 @@ def Mymkres(stat: bool, info: Any):
             return res400(info)
         elif info == "No permission.":
             return res403()
+        elif info == "Not enough search results.":
+            return res200(info, True)
         else:
             logger.error(info)
             return res500()

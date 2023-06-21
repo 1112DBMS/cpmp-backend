@@ -3,6 +3,7 @@ from typing import List, Set, Dict, Tuple
 from typing import Union, Optional, Any
 from uuid import uuid4
 from datetime import datetime
+from random import shuffle
 
 import utils.music as music
 import utils.sql as sql
@@ -71,6 +72,9 @@ def set_role(QID, UID, Role) -> bool:
 def line_match(QID, SID, IDX) -> bool:
     return sql.queue_line_exist(QID, SID, IDX)
 
+def set_indexes(QID, IDXs) -> bool:
+    return sql.update_queue_idxs(QID, IDXs)
+
 def uuid() -> str:
     return str(uuid4())
 
@@ -137,7 +141,7 @@ def s_get_queue(QID, UID) -> Tuple[bool, str | List[Dict[str, Any]]]:
     queue_rows, time_rows = get_queue_rows(QID)
 
     try:
-        tracks = music.gen_track_list(UUIDs = queue_rows)
+        tracks = music.gen_track_list(UUIDs = queue_rows, UserID=UID)
         data = {
             "list": [{**x, "time":y.isoformat()}for x, y in zip(tracks, time_rows)],
             "total": len(tracks),
@@ -241,4 +245,29 @@ def s_queue_next(QID, UID) -> Tuple[bool, str]:
             raise RuntimeError("Error when rotating song.")
     except Exception as e:
         return (False, str(e))
+
+def s_queue_shuffle(QID, UID) -> Tuple[bool, str]:
+    if UID is None:
+        return (False, "Not login.")
+    if QID is None:
+        QID = fetch_queue_ID(UID)
+    if not check_exist(QID):
+        return (False, "Value queue id invalid.")
+    if not can_edit(QID, UID):
+        return (False, "No permission.")
     
+    Qlen = get_queue_len(QID)
+
+    if Qlen <= 2:
+        return (True, "Success")
+    
+    idx_lst = list(range(1, Qlen))
+    shuffle(idx_lst)
+    idx_lst.insert(0, 0)
+
+    stat = set_indexes(QID, idx_lst)
+
+    if stat:
+        return (True, "Success")
+    else:
+        return (False, "Shuffle error occurs")

@@ -1,7 +1,9 @@
+from __future__ import annotations
+from typing import List, Set, Dict, Tuple
+from typing import Union, Optional, Any
 from pytube import YouTube as YT, Playlist, Search
 from bs4 import BeautifulSoup
 import os
-
 from uuid import uuid3, NAMESPACE_URL
 
 import utils.sql as sql

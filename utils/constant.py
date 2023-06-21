@@ -15,6 +15,9 @@ PORT = os.getenv('API_PORT')
 CLIENT_ID = os.getenv('CLIENT_ID')
 CLIENT_SECRET = os.getenv('CLIENT_SECRET')
 
+SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
+SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET')
+
 SONG_FOLDER = os.getenv('SONG_FOLDER')
 PIC_FOLDER = os.getenv('PIC_FOLDER')
 
@@ -34,6 +37,10 @@ API_ENDPOINT = "https://discord.com/api"
 
 TOKEN_URL = API_ENDPOINT + "/oauth2/token"
 REVOKE_TOKEN_URL = API_ENDPOINT + "/oauth2/token/revoke"
+
+SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
+SPOTIFY_API_ENDPOINT = "https://api.spotify.com/v1"
+SPOTIFY_DOWN_ENDPOINT = "https://api.spotifydown.com"
 
 #################################
 #                               #

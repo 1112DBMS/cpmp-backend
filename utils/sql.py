@@ -457,9 +457,9 @@ def get_user_role_in_queue(QID, UID):
     else:
         return result[0][0]
 
-def get_user_topk(UID, k):
-    cmd: str = 'SELECT HSong, Count(*) as `Count`, MAX(`Timestamp`) as `Timestamp` FROM History WHERE HUser = %s GROUP BY HSong order by `Count` desc, `Timestamp` desc limit %s'
-    var: Tuple[Any, ...] = (UID, k)
+def get_user_topk(UID, k, Time):
+    cmd: str = 'SELECT HSong, Count(*) as `Count`, MAX(`Timestamp`) as `Timestamp` FROM History WHERE HUser = %s AND `Timestamp` > %s GROUP BY HSong order by `Count` desc, `Timestamp` desc limit %s'
+    var: Tuple[Any, ...] = (UID, Time, k)
     write: bool = False
 
     client = sql_client()
@@ -471,9 +471,9 @@ def get_user_topk(UID, k):
     else:
         return tuple(map(list, zip(*result)))[:2]
 
-def get_all_topk(k):
-    cmd: str = 'SELECT HSong, Count(*) as `Count` FROM History GROUP BY HSong order by `Count` desc limit %s'
-    var: Tuple[Any, ...] = (k,)
+def get_all_topk(k, Time):
+    cmd: str = 'SELECT HSong, Count(*) as `Count` FROM History WHERE `Timestamp` > %s GROUP BY HSong order by `Count` desc limit %s'
+    var: Tuple[Any, ...] = (Time, k)
     write: bool = False
 
     client = sql_client()
@@ -635,10 +635,12 @@ def rotate_queue_loop_all(QID, SID, qlen, Time):
     cmds: List[str] = [
         'INSERT INTO QIndex (`QID`, `Index`, `QSongID`, `Time`) VALUES (%s,%s,%s,%s)',
         'DELETE FROM QIndex WHERE `QID` = %s AND `Index` = 0',
-        'UPDATE QIndex SET `Index` = `Index` - 1 WHERE QID = %s'
+        'UPDATE QIndex SET `Index` = `Index` - POW(2, 31) WHERE QID = %s',
+        'UPDATE QIndex SET `Index` = `Index` + POW(2, 31) - 1 WHERE QID = %s AND `Index` < 0'
     ]
     vars: List[Tuple[Any, ...]] = [
         (QID, qlen, SID, Time),
+        (QID,),
         (QID,),
         (QID,)
     ]
@@ -707,5 +709,29 @@ def delete_user_like(UID, SID) -> bool:
 
     client = sql_client()
     result = client.execute(cmd, var, write)
+    client.close()
+    return result
+
+#############################
+#                           #
+#       More New Codes      #
+#                           #
+#############################
+
+def update_queue_idxs(QID, IDXs) -> bool:
+    
+    cmds: List[str] = []
+    vars: List[Tuple[Any, ...]] = []
+
+    for old_idx, new_idx in enumerate(IDXs):
+        cmds.append('UPDATE QIndex SET `Index` = %s - POW(2, 31) WHERE QID = %s AND `Index` = %s')
+        vars.append((new_idx, QID, old_idx))
+
+    cmds.append('UPDATE QIndex SET `Index` = `Index` + POW(2, 31) WHERE QID = %s AND `Index` < 0')
+    vars.append((QID,))
+    write: bool = True
+
+    client = sql_client()
+    result = client.execute_multi(cmds, vars, write)
     client.close()
     return result

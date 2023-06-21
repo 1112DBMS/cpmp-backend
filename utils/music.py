@@ -4,8 +4,10 @@ from typing import Union, Optional, Any
 from multiprocessing import Process, Manager
 import math
 from time import sleep
+import re
 
 import utils.yt as YT
+import utils.spotify as spot
 import utils.uploader as uploader
 import utils.history as history
 import utils.sql as sql
@@ -59,31 +61,52 @@ def get_song(ID):
 def set_download(ID, state):
     return sql.update_song_download(ID, state)
 
+def is_yt(url) -> bool:
+
+    youtube_regex = (
+        r'(https?://)?(www\.)?'
+        '(youtube|youtu|youtube-nocookie)\.(com|be)/'
+        '(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})'
+    )
+    
+    youtube_regex_match = re.match(youtube_regex, url)
+
+    if not youtube_regex_match:
+        return False
+    else:
+        return True
+
 def fetch_song(url = None, UUID = None):
     if UUID is not None:
         pass
     else:
-        UUID = YT.uuid(url=url)
-
-    if not check_exist(UUID):
-        if url is not None:
-            Tries = 3
-            while Tries > 0:
-                try:
-                    YT.add_song(url=url, download=False)
-                    break
-                except ConnectionResetError:
-                    sleep(0.1)
-                    print(f"Retry pulling {url}")
-                    Tries -= 1
-            if Tries == 0:
-                raise ConnectionResetError(f"Out of tries when fetching {url}")
-                
-            print("Add new song:", UUID)
+        if is_yt(url):
+            UUID = YT.uuid(url=url)
         else:
-            raise ValueError("No url is given to generate song.")
+            UUID = spot.uuid(url=url)
+
+    if check_exist(UUID):
+        return get_song(UUID)
+
+    if url is not None:
+        Tries = 3
+        while Tries > 0:
+            try:
+                if is_yt(url):
+                    YT.add_song(url=url, download=False)
+                else:
+                    spot.add_song(url=url, download=False)
+                break
+            except ConnectionResetError:
+                sleep(0.1)
+                print(f"Retry pulling {url}")
+                Tries -= 1
+        if Tries == 0:
+            raise ConnectionResetError(f"Out of tries when fetching {url}")
+            
+        print("Add new song:", UUID)
     else:
-        print("Song exists.")
+        raise ValueError("No url is given to generate song.")
 
     return get_song(UUID)
 
@@ -131,21 +154,41 @@ def gen_track_list(urls = None, UUIDs = None, UserID = None):
             p[idx].join()
     return list(Tracklst)
 
-def search(query, offset, size):
-    d = None
-    error = False
-    result = YT.search(query, offset+size)
-    if len(result) > offset:
+def search(query, offset, size, plat, UID):
+    
+    if offset > 60 or offset < 0:
+        return (False, "Value offset invalid.")
+    
+    if size <= 0 or size > 30:
+        return (False, "Value len invalid.")
+
+    if query is None:
+        return (False, "Value keyword invalid.")
+
+    urls = []
+
+    if plat == "youtube":
+        
+        result = YT.search(query, offset+size)
+        
+        if len(result) <= offset:
+            return (False, "Not enough search results.")
+        
         urls = [yt.watch_url for yt in result[offset:]]
-        tracks = gen_track_list(urls = urls)
-        d = {
-            "list": tracks,
-            "total": len(tracks)
-        }
-    else:
-        d = "Not enough search results."
-        error = True
-    return (d, error)
+
+    elif plat == "spotify":
+
+        result = spot.search(query, offset, size)
+        urls = [item["external_urls"]["spotify"] for item in result]
+
+    tracks = gen_track_list(urls = urls, UserID=UID)
+
+    d = {
+        "list": tracks,
+        "total": len(tracks)
+    }
+
+    return (True, d)
 
 def s_get_track(url, SID, UID) -> Tuple[bool, str | Dict[str, Any]]:
     if SID is None and url is None:
@@ -189,7 +232,22 @@ def s_download(SID) -> Tuple[bool, str]:
             return (True, "Success")
         
         elif Song["Platform"] == "spotify":
-            return (False, "501")
+
+            if Song["Download"] == 0:
+                set_download(SID, 1)
+                try:
+                    spot.download_song(Song["OrigURL"])
+                    set_download(SID, 2)
+                except Exception as e:
+                    set_download(SID, 0)
+                    raise e
+                
+            elif Song["Download"] == 1:
+                while Song["Download"] == 1:
+                    sleep(1)
+                    Song = get_song(SID)
+
+            return (True, "Success")
         else:
             return (False, "Unknown Platform")
         

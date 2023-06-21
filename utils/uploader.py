@@ -3,9 +3,11 @@ import json
 from bs4 import BeautifulSoup
 from pytube.contrib.channel import Channel
 from uuid import uuid3, NAMESPACE_URL
+import requests
 
 import utils.sql as sql
 import utils.picture as picture
+import utils.spotify as spot
 
 def uuid(url):
     return str(uuid3(NAMESPACE_URL, url))
@@ -24,7 +26,6 @@ def add_uploader(url, platform):
         OrigID = chan.channel_id
         Name = chan.channel_name
         Platform = platform
-        
 
         About_html = chan.about_html
 
@@ -52,9 +53,22 @@ def add_uploader(url, platform):
         success = sql.add_new_uploader(UUID, URL, OrigID, Name, Platform, PhotoID, Description)
 
     elif platform == "spotify":
-        pass #TODO
+
+        spotObj = spot.fetch_artist_info(url)
+
+        UUID = uuid(url)
+        URL = url
+        OrigID = url.split("/")[-1]
+        Name = spotObj["name"]
+        Platform = platform
+        PhotoID = picture.fetch_picture(spotObj["images"][0]["url"])["PicID"]
+        Description = "Lorem ipsum"
+
+        success = sql.add_new_uploader(UUID, URL, OrigID, Name, Platform, PhotoID, Description)
+
     else:
         raise ValueError(f"Unknown platform = {platform}!")
+    
     return
 
 def fetch_uploader(url = None, UUID = None, platform = "default"):
