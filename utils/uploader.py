@@ -79,8 +79,5 @@ def fetch_uploader(url = None, UUID = None, platform = "default"):
     
     if not check_exist(UUID):
         add_uploader(url=url, platform=platform)
-        print("Add new uploader:", UUID)
-    else:
-        print("Uploader exists.")
 
     return get_uploader(UUID)

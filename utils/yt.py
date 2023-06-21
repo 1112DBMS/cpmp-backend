@@ -20,30 +20,28 @@ def download_song(url):
     song_fn = "{Id}".format(Id=uuid(url=url))
         
     if os.path.isfile(f"{SONG_FOLDER}/{song_fn}"):
-        print("File exist, skipping...")
         return
-    else:
-        stream_datas = list(ytObj.streams.filter(only_audio=True))
-
-        max_itag = ""
-        max_kbps = -1
-        max_type = ""
     
-        for i in range(len(stream_datas)):
-            parsed_html = BeautifulSoup(str(stream_datas[i]), "html.parser")
-            kbps = int(parsed_html.find('stream:')["abr"][:-4])
-            if kbps > max_kbps:
-                max_kbps = kbps
-                max_itag = parsed_html.find('stream:')["itag"]
-                #max_type = parsed_html.find('stream:')["mime_type"].split("/")[1]
+    stream_datas = list(ytObj.streams.filter(only_audio=True))
 
-        ys = ytObj.streams.get_by_itag(max_itag)
-        ys.download(output_path = SONG_FOLDER, filename = song_fn)
-        return
+    max_itag = ""
+    max_kbps = -1
+    max_type = ""
+
+    for i in range(len(stream_datas)):
+        parsed_html = BeautifulSoup(str(stream_datas[i]), "html.parser")
+        kbps = int(parsed_html.find('stream:')["abr"][:-4])
+        if kbps > max_kbps:
+            max_kbps = kbps
+            max_itag = parsed_html.find('stream:')["itag"]
+            #max_type = parsed_html.find('stream:')["mime_type"].split("/")[1]
+
+    ys = ytObj.streams.get_by_itag(max_itag)
+    ys.download(output_path = SONG_FOLDER, filename = song_fn)
+    return
 
 def search(query, max_idx):
     search = Search(query)
-    print("len =", len(search.results))
     while len(search.results) < max_idx:
         try:
             search.get_next_results()

@@ -28,13 +28,8 @@ class middleware():
     def __call__(self, environ, start_response):
         
         request = Request(environ)
-
-        whitelist = ["/api/login", "/api/500"]
-
-        print("referrer:", request.referrer)
-        print("URL:", request.root_url[:-1]+request.path)
         
-        if request.path not in whitelist and (not isinstance(request.referrer, str) or not (request.referrer.startswith(SITE) or request.referrer.startswith("https://discord.com/") or request.referrer.startswith("http://localhost:3000/") or request.referrer.startswith("https://dev.andyjjrt.cc/"))):
+        if not isinstance(request.referrer, str) or not (request.referrer.startswith(SITE) or request.referrer.startswith("https://discord.com/") or request.referrer.startswith("http://localhost:3000/") or request.referrer.startswith("https://dev.andyjjrt.cc/")):
             j = {
                 'data': 'Cross Site Request is not allowed.',
                 'error': True

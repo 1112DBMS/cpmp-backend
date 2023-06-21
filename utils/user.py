@@ -82,8 +82,6 @@ def add_user(res_data, AccessToken, RefreshToken):
 
     PicID = download_photo(UserID, ava_hash, discriminator)
 
-    print("Creating user:", UserID, UserName)
-
     success = sql.add_new_user(UserID, UserName, email, PicID, AccessToken, RefreshToken)
 
     return
@@ -118,10 +116,7 @@ def download_photo(UserID, ava_hash, discriminator):
     
     PicID = picture.uuid(Photo_url)
     if not picture.check_exist(PicID):
-        print("New Pic:", PicID)
         picture.add_picture(Photo_url)
-    else:
-        print("Picture exists.")
     return PicID
 
 def update_info(ID, res_data = None):
@@ -141,8 +136,6 @@ def update_info(ID, res_data = None):
         update_photo(ID, PicID)
         if picture.picture_user_using(user["Photo"]) == False:
             picture.delete_picture(user["Photo"])
-        else:
-            print("Others using, skip deleting...")
 
     if user["Email"] != email:
         update_email(ID, email)

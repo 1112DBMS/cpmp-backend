@@ -103,8 +103,6 @@ def fetch_song(url = None, UUID = None):
                 Tries -= 1
         if Tries == 0:
             raise ConnectionResetError(f"Out of tries when fetching {url}")
-            
-        print("Add new song:", UUID)
     else:
         raise ValueError("No url is given to generate song.")
 

@@ -32,7 +32,6 @@ def add_picture(url):
     img = Image.open(Filepath)
     sizeX, sizeY = img.size
     Time = datetime.now()
-    print("Add new PIC:", UUID)
     success = sql.add_new_picture(UUID, Time, sizeX, sizeY)
     return success
 
@@ -55,7 +54,6 @@ def delete_picture(UUID):
         if os.path.isfile(Filepath):
             os.remove(Filepath)
 
-        print("PIC deleted:", UUID)
         return True
     else:
         return False
