@@ -33,7 +33,7 @@ class MyResponse:
         }
         return
     def json(self):
-        return json.dumps(self.d, indent=4)
+        return json.dumps(self.d, indent=4, ensure_ascii=False)
 
 @app.route("/api/logout", methods=['GET'])
 def logout():
@@ -98,8 +98,6 @@ def profile():
 def search():
     UserID = flask.request.environ['user']
 
-    res = None
-
     if not flask.request.is_json:
         return res400()
     
@@ -110,7 +108,15 @@ def search():
     length = data.get('len', 10)
     plat = data.get('platform', "youtube")
 
-    stat, info = music.search(query_str, offset, length, plat, UserID)
+    stat, info = music.s_search(query_str, offset, length, plat, UserID)
+
+    return Mymkres(stat, info)
+
+@app.route("/api/autocomplete", methods=['GET'])
+def autocomplete():
+    query = flask.request.args.get('q', None)
+
+    stat, info = music.s_autocomplete(query)
 
     return Mymkres(stat, info)
 

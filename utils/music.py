@@ -1,10 +1,13 @@
 from __future__ import annotations
 from typing import List, Set, Dict, Tuple
 from typing import Union, Optional, Any
+
 from multiprocessing import Process, Manager
 import math
 from time import sleep
 import re
+import requests
+import json
 
 import utils.yt as YT
 import utils.spotify as spot
@@ -12,6 +15,7 @@ import utils.uploader as uploader
 import utils.history as history
 import utils.sql as sql
 from utils.constant import WORKERS, DOWNLOAD_LENGTH_LIMIT
+from utils.constant import YT_AUTOCOMPLETE_ENDPOINT as YT_AUTO_EP
 
 class track:
 
@@ -152,7 +156,7 @@ def gen_track_list(urls = None, UUIDs = None, UserID = None):
             p[idx].join()
     return list(Tracklst)
 
-def search(query, offset, size, plat, UID):
+def s_search(query, offset, size, plat, UID):
     
     if offset > 60 or offset < 0:
         return (False, "Value offset invalid.")
@@ -186,6 +190,46 @@ def search(query, offset, size, plat, UID):
         "total": len(tracks)
     }
 
+    return (True, d)
+
+def s_autocomplete(query):
+    
+    if query is None:
+        query = ""
+    else:
+        query = str(query)
+
+    params = {
+        "client": "youtube",
+        "sugexp": "uqapsmulti282,ytpso.bo.me=1,ytpso.bo.bro.vsw=0.2,ytpso.bo.bro.lsw=0.8,ytpso.bo.bro.mi=24500773,ytpsoso.bo.me=1,ytpsoso.bo.bro.vsw=0.2,ytpsoso.bo.bro.lsw=0.8,ytpsoso.bo.bro.mi=24500773,cfro=1,ytpso.bo.me=0,ytpsoso.bo.me=0,ytpso.bo.bro.mi=24365003,ytpsoso.bo.bro.mi=24365003",
+        "hl": "zh-tw",
+        "gl": "tw",
+        "ds": "yt",
+        "cp": len(query),
+        "q": query
+    }
+    headers = {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+    }
+    
+    req = requests.get(YT_AUTO_EP, params=params, headers=headers)
+    text = req.text
+
+    start = text.find('(')
+    end = text.rfind(')')
+    if start != -1 and end != -1:
+        text = text[start+1:end]
+    else:
+        return (False, "Autocomplete api error")
+    
+    j = json.loads(text)
+
+    completed_texts = [x[0] for x in j[1]]
+
+    d = {
+        "list": completed_texts,
+        "total": len(completed_texts)
+    }
     return (True, d)
 
 def s_get_track(url, SID, UID) -> Tuple[bool, str | Dict[str, Any]]:

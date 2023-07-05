@@ -42,6 +42,8 @@ SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_API_ENDPOINT = "https://api.spotify.com/v1"
 SPOTIFY_DOWN_ENDPOINT = "https://api.spotifydown.com"
 
+YT_AUTOCOMPLETE_ENDPOINT = "https://suggestqueries-clients6.youtube.com/complete/search"
+
 #################################
 #                               #
 #            limits             #
